@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Planificador Pro - Permutas Inteligentes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6; --primary-light: #dbeafe;
+            --bg: #f8fafc; --text: #1e293b;
+            --danger: #ef4444; --border: #cbd5e1; 
+            --warning: #f59e0b; 
+            --warning-light: #fef3c7; /* Ámbar festivos */
+            --friday-light: #fefce8;  /* Amarillo suave vísperas */
+            --success: #107c10;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 50px; }
+        
+        /* HEADER */
+        .header { background: white; padding: 1rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .month-nav { display: flex; align-items: center; gap: 15px; background: #f1f5f9; padding: 6px 15px; border-radius: 12px; border: 1px solid var(--border); }
+        .month-display { font-weight: 800; min-width: 140px; text-align: center; text-transform: capitalize; font-size: 1rem; color: var(--text); }
+        .nav-arrow { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--primary); font-weight: bold; }
+        
+        .btn-group { display: flex; gap: 8px; }
+        .btn-header { padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); transition: 0.2s; font-size: 0.8rem; }
+        .btn-auto { background: var(--primary); color: white; border: none; }
+        .btn-excel { background: var(--success); color: white; border: none; }
+        .btn-clear { background: white; color: var(--danger); border: 1px solid var(--danger); }
+
+        .container { max-width: 1500px; margin: 20px auto; padding: 0 20px; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid var(--border); }
+
+        /* TABS */
+        .tab-nav { display: flex; justify-content: center; margin-bottom: 20px; gap: 10px; }
+        .tab-btn { padding: 10px 20px; border-radius: 50px; border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 600; color: #64748b; transition: 0.3s; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2); }
+
+        /* CUADRANTE ESTILOS (TABLA INFERIOR) */
+        .matrix-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; background: white; }
+        th, td { border: 1px solid var(--border); text-align: center; padding: 6px 2px; min-width: 32px; height: 34px; }
+        th { background: #f1f5f9; font-weight: 800; color: #475569; }
+        
+        .col-festivo { background: var(--warning-light) !important; border-color: #d97706 !important; }
+        .col-viernes { background: var(--friday-light) !important; }
+        
+        .cell-assigned { font-weight: 900; color: #000; font-size: 1.1rem; }
+        .cell-no { background: var(--danger) !important; color: transparent !important; cursor: not-allowed !important; }
+        .cell-pref { background: var(--primary-light) !important; color: var(--primary) !important; font-weight: 900; }
+        
+        .row-name { text-align: left; padding-left: 12px; font-weight: 800; color: white; min-width: 160px; position: sticky; left: 0; z-index: 10; border-right: 2px solid var(--border); }
+        .stat-val { font-weight: 800; color: #1e293b; background: #f8fafc; font-size: 0.7rem; border-left: 2px solid var(--border); }
+
+        /* CALENDARIO VISUAL SUPERIOR */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        .cal-head { background: #f1f5f9; padding: 12px; text-align: center; font-weight: 800; font-size: 0.75rem; color: #475569; text-transform: uppercase; }
+        .cal-day { background: white; min-height: 110px; padding: 10px; position: relative; }
+        .cal-day.is-festivo { background: var(--warning-light); }
+        .pill { font-size: 0.65rem; padding: 4px 8px; border-radius: 6px; color: white; margin-bottom: 4px; font-weight: 800; text-align: center; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* FICHAS EMPLEADOS */
+        .employee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+        .emp-card { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .emp-card::before { content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: var(--emp-color); border-radius: 16px 0 0 16px; }
+        .btn-del-emp { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 1.1rem; }
+        .btn-del-emp:hover { color: var(--danger); }
+        .input-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .input-field label { font-size: 0.6rem; color: #64748b; font-weight: 800; display: block; margin-bottom: 4px; text-transform: uppercase; }
+        .input-field input { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font-weight: bold; text-align: center; }
+        .btn-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* ALERTAS Y ANIMACIONES */
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-4px);} 75% {transform: translateX(4px);} }
+        .cell-invalid { background: #fca5a5 !important; animation: shake 0.3s ease-in-out; border: 2px solid var(--danger) !important; }
+        #validationMessage { display: none; background: #fee2e2; color: #991b1b; padding: 12px 20px; border-radius: 8px; font-weight: 700; border-left: 5px solid var(--danger); position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 1001; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        #conflictAlert { display: none; background: #fff1f2; color: #9f1239; padding: 15px; border-radius: 8px; margin-top: 15px; justify-content: space-between; align-items: center; border: 1px solid #fda4af; font-weight: bold; }
+
+        .hidden { display: none; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
+        .modal-content { background: white; padding: 30px; border-radius: 24px; width: 400px; }
+        
+        .log-container { margin-top: 20px; padding: 15px; background: #1e293b; color: #f8fafc; border-radius: 8px; font-family: monospace; font-size: 0.8rem; max-height: 150px; overflow-y: auto; }
+        .log-entry { margin-bottom: 5px; border-left: 2px solid var(--primary); padding-left: 8px; }
+    </style>
+</head>
+<body onload="init()">
+
+<div id="validationMessage"></div>
+
+<div class="header">
+    <div style="font-weight: 900; font-size: 1.3rem; color: var(--primary);">Planificador de Turnos</div>
+    <div class="month-nav">
+        <button class="nav-arrow" onclick="changeMonth(-1)">❮</button>
+        <span id="monthDisplay" class="month-display"></span>
+        <button class="nav-arrow" onclick="changeMonth(1)">❯</button>
+    </div>
+    <div class="btn-group">
+        <button class="btn-header btn-excel" onclick="exportToExcel()">📤 Exportar</button>
+        <button class="btn-header btn-excel" onclick="document.getElementById('importExcel').click()">📥 Importar</button>
+        <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onchange="importFromExcel(event)">
+        <button class="btn-header btn-clear" onclick="clearAssignment()">🗑️ Limpiar</button>
+        <button class="btn-header btn-auto" onclick="generate()">🚀 Generar Inteligente</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="tab-nav">
+        <button id="btn-tab-cal" class="tab-btn active" onclick="showTab('calendario')">📅 Cuadrante</button>
+        <button id="btn-tab-emp" class="tab-btn" onclick="showTab('empleados')">👥 Empleados</button>
+    </div>
+
+    <div id="tab-calendario">
+        <div class="card" style="padding: 10px;"><div id="mainCalendar" class="calendar-grid"></div></div>
+        <div class="card">
+            <div class="matrix-wrapper"><table id="matrixTable"></table></div>
+            <div id="conflictAlert">
+                <span>⚠️ Conflictos detectados (Exceso de personal >2).</span>
+                <button style="background:#be123c; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer;" onclick="resolveConflicts()">Resolver y Permutar</button>
+            </div>
+            <div id="auditLog" class="log-container">Esperando generación...</div>
+        </div>
+    </div>
+
+    <div id="tab-empleados" class="hidden">
+        <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+            <button class="btn-header" style="background: var(--success); color: white; border: none;" onclick="openAddEmployeeModal()">➕ Añadir Empleado</button>
+        </div>
+        <div id="employeeList" class="employee-grid"></div>
+    </div>
+</div>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalName" style="margin:0;"></h3>
+        <p id="modalDesc" style="font-size: 0.85rem; color: #64748b;"></p>
+        <div id="pickerGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 20px;"></div>
+        <button style="width:100%; padding:14px; margin-top:25px; background:var(--primary); color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;" onclick="closeModal()">Guardar Cambios</button>
+    </div>
+</div>
+
+<div id="modalAddEmp" class="modal">
+    <div class="modal-content" style="width: 300px;">
+        <h3 style="margin:0 0 20px 0;">Nuevo Empleado</h3>
+        <input type="text" id="newEmpName" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom:15px;" placeholder="Nombre completo">
+        <input type="color" id="newEmpColor" style="width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;" value="#3b82f6">
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button style="flex:1; padding: 12px; background: #e2e8f0; border: none; border-radius: 10px; cursor:pointer;" onclick="closeAddEmployeeModal()">Cancelar</button>
+            <button style="flex:1; padding: 12px; background: var(--success); color: white; border: none; border-radius: 10px; cursor:pointer; font-weight: bold;" onclick="addEmployee()">Añadir</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let employeesData = [
+        { name: "Laura Remedios", color: "#45b7af" }, { name: "Laura Garcia", color: "#d9b3c1" },
+        { name: "Mayte", color: "#c8bfe7" }, { name: "Gema", color: "#d1e2c4" },
+        { name: "Pilar", color: "#4a69bd" }, { name: "Oscar", color: "#ef4444" },
+        { name: "Raquel DC", color: "#ccff00" }, { name: "Begoña", color: "#00ffff" },
+        { name: "Carmen", color: "#ff00ff" }, { name: "Belén", color: "#006400" },
+        { name: "Jorge", color: "#e67e22" }, { name: "Paola", color: "#3498db" },
+        { name: "Raquel DM", color: "#2ecc71" }, { name: "Rober", color: "#1abc9c" },
+        { name: "Elena", color: "#802020" }, { name: "Maria", color: "#b2a2a2" },
+        { name: "Andrea", color: "#1e272e" }
+    ];
+
+    let currentDate = new Date(2026, 4, 1);
+    let db = {};
+    let manualHolidays = [];
+    let lastManualAction = { name: null, day: null };
+
+    function init() {
+        employeesData.forEach(e => {
+            if(!db[e.name]) db[e.name] = { ...e, noDisp: [], prefs: [], asignado: [], qTotal: 0, qV: 0, qF: 0 };
+        });
+        updateView();
+    }
+
+    // --- LOGICA DE ALERTAS Y ASIGNACIÓN MANUAL ---
+    function showError(msg, cell) {
+        const el = document.getElementById('validationMessage');
+        el.innerText = "🚫 " + msg;
+        el.style.display = 'block';
+        if(cell) {
+            cell.classList.add('cell-invalid');
+            setTimeout(() => cell.classList.remove('cell-invalid'), 600);
+        }
+        setTimeout(() => el.style.display = 'none', 3000);
+    }
+
+    function toggleManualAsign(n, d, cell) {
+        if (db[n].noDisp.includes(d)) return;
+        const isAssigned = db[n].asignado.includes(d);
+        
+        if (!isAssigned) {
+            if (n === "Oscar" || n === "Gema") {
+                const partner = n === "Oscar" ? "Gema" : "Oscar";
+                if(db[partner].asignado.includes(d)) return showError("Oscar y Gema no pueden trabajar juntos", cell);
+                if(db[partner].asignado.includes(d-1) || db[partner].asignado.includes(d+1)) return showError("Oscar y Gema no pueden enlazar días consecutivos", cell);
+            }
+            if(db[n].asignado.includes(d-1) || db[n].asignado.includes(d+1)) return showError("Descanso obligatorio de 24h incumplido", cell);
+            
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+            if(date.getDay() === 1 && db[n].asignado.includes(d - 2)) return showError("No puede trabajar el Lunes si ya trabaja el Sábado", cell);
+            if(date.getDay() === 6 && db[n].asignado.includes(d + 2)) return showError("No puede trabajar el Sábado si ya tiene el Lunes", cell);
+
+            db[n].asignado.push(d);
+            lastManualAction = { name: n, day: d };
+        } else {
+            db[n].asignado = db[n].asignado.filter(x => x !== d);
+            if(lastManualAction.name === n && lastManualAction.day === d) lastManualAction = { name: null, day: null };
+        }
+        renderOutput();
+    }
+
+    function addLog(t) { 
+        const log = document.getElementById('auditLog'); 
+        if(log.innerText.includes("Esperando")) log.innerHTML = ""; 
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+        log.innerHTML = `<div class="log-entry"><span style="color:#94a3b8">[${time}]</span> ${t}</div>` + log.innerHTML; 
+    }
+
+    // --- MOTOR DE PERMUTAS PARA CONFLICTOS MANUALES ---
+    function resolveConflicts() {
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        let logsAdded = 0;
+
+        for (let d = 1; d <= dInM; d++) {
+            let assigned = employeesData.filter(e => db[e.name].asignado.includes(d)).map(e => e.name);
+            
+            while (assigned.length > 2) {
+                // Proteger el último cambio manual
+                let mandatory = (lastManualAction.day === d) ? lastManualAction.name : null;
+                let removable = assigned.filter(name => name !== mandatory);
+                if(removable.length === 0) removable = assigned;
+                
+                // Coger al primero desplazable
+                let pToMove = removable[0];
+                
+                // Sacarlo del día de conflicto
+                db[pToMove].asignado = db[pToMove].asignado.filter(x => x !== d);
+                assigned = assigned.filter(x => x !== pToMove);
+                
+                // Buscarle un nuevo hueco
+                let newD = findEmptyDayFor(pToMove);
+                if (newD) {
+                    db[pToMove].asignado.push(newD);
+                    addLog(`🔄 <b>Resolución Día ${d}:</b> Se ha movido a ${pToMove} al día ${newD}.`);
+                } else {
+                    // Si no hay hueco, intentar permuta (Swap)
+                    let swap = findSwapFor(pToMove, d);
+                    if (swap) {
+                        // Realizar permuta
+                        db[swap.displacedPerson].asignado = db[swap.displacedPerson].asignado.filter(x => x !== swap.targetDay);
+                        db[swap.displacedPerson].asignado.push(swap.newDayForDisplaced);
+                        db[pToMove].asignado.push(swap.targetDay);
+                        
+                        addLog(`🔀 <b>Permuta Día ${d}:</b> ${pToMove} -> Día ${swap.targetDay}. Desplazando a ${swap.displacedPerson} -> Día ${swap.newDayForDisplaced}.`);
+                    } else {
+                        addLog(`⚠️ <b>Aviso:</b> Se quitó el turno a ${pToMove} el día ${d} pero no había huecos legales para reasignarlo.`);
+                    }
+                }
+                logsAdded++;
+            }
+        }
+        if(logsAdded > 0) lastManualAction = { name: null, day: null };
+        renderOutput();
+    }
+
+    function findEmptyDayFor(name) {
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        // Intentar 48h primero
+        for(let d=1; d<=dInM; d++) {
+            if(countInDay(d) < 2 && !db[name].asignado.includes(d) && !db[name].noDisp.includes(d) && checkLegality(name, d, 2)) return d;
+        }
+        // Intentar 24h
+        for(let d=1; d<=dInM; d++) {
+            if(countInDay(d) < 2 && !db[name].asignado.includes(d) && !db[name].noDisp.includes(d) && checkLegality(name, d, 1)) return d;
+        }
+        return null;
+    }
+
+    function findSwapFor(name, originalDay) {
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        for(let targetDay = 1; targetDay <= dInM; targetDay++) {
+            if(targetDay === originalDay) continue;
+            if(db[name].asignado.includes(targetDay) || db[name].noDisp.includes(targetDay)) continue;
+            if(!checkLegality(name, targetDay, 1)) continue;
+            
+            let currentWorkers = employeesData.filter(e => db[e.name].asignado.includes(targetDay)).map(e => e.name);
+            for(let displacedPerson of currentWorkers) {
+                db[displacedPerson].asignado = db[displacedPerson].asignado.filter(x => x !== targetDay); // Sacar temporalmente
+                let emptyD = findEmptyDayFor(displacedPerson);
+                db[displacedPerson].asignado.push(targetDay); // Restaurar
+                
+                if(emptyD) return { targetDay, displacedPerson, newDayForDisplaced: emptyD };
+            }
+        }
+        return null;
+    }
+
+    // --- MOTOR DE GENERACIÓN INTELIGENTE ---
+    function generate() {
+        const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        document.getElementById('auditLog').innerHTML = "";
+        addLog("🚀 Iniciando motor de completado inteligente...");
+        
+        let passes = [
+            { onlyPrefs: true, minRest: 2, label: "peticiones (48h)" },
+            { onlyPrefs: false, minRest: 2, label: "relleno normal (48h)" },
+            { onlyPrefs: false, minRest: 1, label: "huecos críticos (24h)" }
+        ];
+
+        for(let pass of passes) {
+            let madeChanges = true;
+            while(madeChanges) {
+                madeChanges = false;
+                let pool = [...employeesData];
+                pool.sort((a,b) => {
+                    const goalA = db[a.name].qTotal > 0 && db[a.name].asignado.length < db[a.name].qTotal;
+                    const goalB = db[b.name].qTotal > 0 && db[b.name].asignado.length < db[b.name].qTotal;
+                    if(goalA && !goalB) return -1;
+                    if(!goalA && goalB) return 1;
+                    return db[a.name].asignado.length - db[b.name].asignado.length;
+                });
+
+                for(let e of pool) {
+                    let bestDay = -1;
+                    let bestScore = -9999;
+                    for(let d=1; d<=days; d++) {
+                        if(countInDay(d) >= 2) continue;
+                        if(db[e.name].asignado.includes(d) || db[e.name].noDisp.includes(d)) continue;
+                        if(pass.onlyPrefs && !db[e.name].prefs.includes(d)) continue;
+                        if(!checkLegality(e.name, d, pass.minRest)) continue;
+                        
+                        let score = 0;
+                        if(db[e.name].prefs.includes(d)) score += 100;
+                        score -= countInDay(d) * 10; // Prioriza días totalmente vacíos (0 personas)
+                        
+                        if(score > bestScore) { bestScore = score; bestDay = d; }
+                    }
+
+                    if(bestDay !== -1) {
+                        db[e.name].asignado.push(bestDay);
+                        addLog(`Día ${bestDay}: Asignado a <b>${e.name}</b> por ${pass.label} (Total: ${db[e.name].asignado.length})`);
+                        madeChanges = true;
+                        break;
+                    }
+                }
+            }
+        }
+        addLog("✅ Cuadrante completado.");
+        renderOutput();
+    }
+
+    function checkLegality(name, day, minRest) {
+        const myDays = db[name].asignado;
+        for(let i = -minRest; i <= minRest; i++) {
+            if(i === 0) continue;
+            if(myDays.includes(day + i)) return false;
+        }
+        if(name === "Oscar" || name === "Gema") {
+            const partner = name === "Oscar" ? "Gema" : "Oscar";
+            if(db[partner] && (db[partner].asignado.includes(day) || db[partner].asignado.includes(day-1) || db[partner].asignado.includes(day+1))) return false;
+        }
+        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        if(date.getDay() === 1 && myDays.includes(day - 2)) return false; // Sab->Lun
+        if(date.getDay() === 6 && myDays.includes(day + 2)) return false; // Sab->Lun
+        return true;
+    }
+
+    function countInDay(d) { return employeesData.filter(e => db[e.name].asignado.includes(d)).length; }
+
+    // --- RENDERIZADO VISUAL ---
+    function renderOutput() {
+        const y = currentDate.getFullYear(), m = currentDate.getMonth();
+        const dInM = new Date(y, m + 1, 0).getDate(), first = (new Date(y, m, 1).getDay() || 7) - 1;
+
+        const cal = document.getElementById('mainCalendar');
+        let h = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(d => `<div class="cal-head">${d}</div>`).join('');
+        for(let i=0; i<first; i++) h += `<div style="background:#f8fafc"></div>`;
+        for(let d=1; d<=dInM; d++) {
+            const isF = manualHolidays.includes(d) || [0,6].includes(new Date(y,m,d).getDay());
+            let pills = employeesData.filter(e => db[e.name].asignado.includes(d)).map(e => `<span class="pill" style="background:${e.color}">${e.name}</span>`).join('');
+            h += `<div class="cal-day ${isF?'is-festivo':''}">
+                    <span style="font-size:0.75rem; font-weight: 800;">${d}</span>
+                    <button class="btn-fest-toggle ${manualHolidays.includes(d)?'active':''}" style="position:absolute; top:5px; right:5px; font-size:0.5rem; cursor:pointer;" onclick="toggleFestivo(${d})">F</button>
+                    <div style="margin-top:10px">${pills}</div>
+                  </div>`;
+        }
+        cal.innerHTML = h;
+
+        const table = document.getElementById('matrixTable');
+        let th = `<tr><th>Empleado</th>` + [...Array(dInM).keys()].map(i => {
+            const d = i+1, date = new Date(y,m,d);
+            const isF = manualHolidays.includes(d) || [0,6].includes(date.getDay());
+            const isV = !isF && (manualHolidays.includes(d+1) || [0,6].includes(new Date(y, m, d+1).getDay()));
+            return `<th class="${isF?'col-festivo':(isV?'col-viernes':'')}">${d}</th>`;
+        }).join('') + `<th>Total</th><th>V/P</th><th>F/F</th></tr>`;
+        
+        let tb = employeesData.map(e => {
+            let cells = "", vC = 0, fC = 0;
+            for(let d=1; d<=dInM; d++) {
+                const assigned = db[e.name].asignado.includes(d);
+                const isNo = db[e.name].noDisp.includes(d);
+                const isPref = db[e.name].prefs.includes(d);
+                const date = new Date(y,m,d);
+                const isF = manualHolidays.includes(d) || [0,6].includes(date.getDay());
+                const isV = !isF && (manualHolidays.includes(d+1) || [0,6].includes(new Date(y, m, d+1).getDay()));
+                
+                if(assigned) { if(isF) fC++; if(isV) vC++; }
+                
+                let cont = assigned ? (isPref ? "P" : "X") : "";
+                let cls = assigned ? (isPref ? "cell-pref" : "cell-assigned") : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
+                
+                cells += `<td class="${isF?'col-festivo':(isV?'col-viernes':'')} ${cls}" onclick="toggleManualAsign('${e.name}', ${d}, this)" style="cursor:pointer">${cont}</td>`;
+            }
+            return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}<td class="stat-val">${db[e.name].asignado.length}/${db[e.name].qTotal}</td><td class="stat-val">${vC}/${db[e.name].qV}</td><td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
+        }).join('');
+        table.innerHTML = th + tb;
+        
+        let conflict = false;
+        for(let d=1; d<=dInM; d++) if(countInDay(d) > 2) conflict = true;
+        document.getElementById('conflictAlert').style.display = conflict ? 'flex' : 'none';
+    }
+
+    // --- GESTIÓN DE PLANTILLA E INTERFAZ BASE ---
+    function openAddEmployeeModal() { document.getElementById('modalAddEmp').style.display = 'flex'; }
+    function closeAddEmployeeModal() { document.getElementById('modalAddEmp').style.display = 'none'; }
+    
+    function addEmployee() {
+        const name = document.getElementById('newEmpName').value.trim();
+        const color = document.getElementById('newEmpColor').value;
+        if(!name) return;
+        employeesData.push({ name, color });
+        db[name] = { name, color, noDisp: [], prefs: [], asignado: [], qTotal: 0, qV: 0, qF: 0 };
+        closeAddEmployeeModal(); updateView();
+    }
+    
+    function removeEmployee(name) {
+        if(confirm(`¿Eliminar a ${name}?`)) {
+            employeesData = employeesData.filter(e => e.name !== name);
+            delete db[name];
+            updateView();
+        }
+    }
+
+    function renderEmployees() {
+        document.getElementById('employeeList').innerHTML = employeesData.map(e => `
+            <div class="emp-card" style="--emp-color: ${e.color}">
+                <button class="btn-del-emp" onclick="removeEmployee('${e.name}')">🗑️</button>
+                <div class="emp-header">
+                    <span class="emp-name">${e.name}</span>
+                </div>
+                <div class="input-group">
+                    <div class="input-field"><label>Objetivo</label><input type="number" value="${db[e.name].qTotal}" onchange="db['${e.name}'].qTotal=parseInt(this.value)||0"></div>
+                    <div class="input-field"><label>Vie/Pre</label><input type="number" value="${db[e.name].qV}" onchange="db['${e.name}'].qV=parseInt(this.value)||0"></div>
+                    <div class="input-field"><label>Fin/Fes</label><input type="number" value="${db[e.name].qF}" onchange="db['${e.name}'].qF=parseInt(this.value)||0"></div>
+                </div>
+                <div class="btn-actions-row">
+                    <button class="btn-action-pick" style="color:var(--danger)" onclick="openModal('${e.name}', 'NO')">🚫 Libranza</button>
+                    <button class="btn-action-pick" style="color:var(--primary)" onclick="openModal('${e.name}', 'YES')">⭐ Petición</button>
+                </div>
+            </div>`).join('');
+    }
+
+    let isDragging = false;
+    function openModal(n, m) { curEmp = n; curMode = m; document.getElementById('modal').style.display='flex'; document.getElementById('modalName').innerText=n; document.getElementById('modalDesc').innerText = m==='NO'?'Marcar días de LIBRANZA (Rojo)':'Marcar días de PREFERENCIA (Azul)'; renderPicker(); }
+    function closeModal() { document.getElementById('modal').style.display='none'; renderEmployees(); renderOutput(); }
+    
+    function renderPicker() {
+        const grid = document.getElementById('pickerGrid'); grid.innerHTML = '';
+        const list = curMode === 'NO' ? db[curEmp].noDisp : db[curEmp].prefs;
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        const first = (new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() || 7) - 1;
+        
+        ['L','M','X','J','V','S','D'].forEach(d => grid.innerHTML += `<div style="text-align:center;font-weight:800;font-size:0.75rem;color:#475569;">${d}</div>`);
+        for(let i=0; i<first; i++) grid.innerHTML += `<div></div>`;
+        
+        for(let d=1; d<=dInM; d++) {
+            const div = document.createElement('div');
+            const active = list.includes(d);
+            div.className = `p-day ${active ? (curMode==='NO'?'active-no':'active-yes') : ''}`;
+            div.innerText = d;
+            div.onmousedown = (e) => { e.preventDefault(); isDragging = true; togglePickerDay(d, !active); };
+            div.onmouseover = () => { if(isDragging) togglePickerDay(d, !active); };
+            grid.appendChild(div);
+        }
+    }
+
+    function togglePickerDay(d, forceActive) {
+        const list = curMode === 'NO' ? db[curEmp].noDisp : db[curEmp].prefs;
+        const opp = curMode === 'NO' ? db[curEmp].prefs : db[curEmp].noDisp;
+        if(forceActive) {
+            if(!list.includes(d)) list.push(d);
+            if(opp.includes(d)) opp.splice(opp.indexOf(d), 1);
+            if(curMode === 'NO') db[curEmp].asignado = db[curEmp].asignado.filter(x => x !== d);
+        } else {
+            if(list.includes(d)) list.splice(list.indexOf(d), 1);
+        }
+        renderPicker();
+    }
+    window.onmouseup = () => isDragging = false;
+
+    function toggleFestivo(d) { const i = manualHolidays.indexOf(d); if(i>-1) manualHolidays.splice(i,1); else manualHolidays.push(d); renderOutput(); }
+    function changeMonth(o) { currentDate.setMonth(currentDate.getMonth()+o); manualHolidays=[]; employeesData.forEach(e=>{db[e.name].noDisp=[];db[e.name].prefs=[];db[e.name].asignado=[]}); updateView(); }
+    function showTab(t) { document.getElementById('tab-calendario').classList.toggle('hidden', t!=='calendario'); document.getElementById('tab-empleados').classList.toggle('hidden', t!=='empleados'); document.getElementById('btn-tab-cal').classList.toggle('active', t==='calendario'); document.getElementById('btn-tab-emp').classList.toggle('active', t==='empleados'); }
+    function updateView() { document.getElementById('monthDisplay').innerText = currentDate.toLocaleString('es-ES', {month:'long', year:'numeric'}); renderEmployees(); renderOutput(); }
+    function clearAssignment() { if(confirm("¿Limpiar cuadrante?")) { employeesData.forEach(e => db[e.name].asignado = []); document.getElementById('auditLog').innerHTML = "<div class='log-entry'>Cuadrante reiniciado.</div>"; renderOutput(); } }
+
+    function exportToExcel() {
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+        const rows = [["Empleado", ...Array.from({length: dInM}, (_, i) => i + 1)]];
+        employeesData.forEach(emp => {
+            const r = [emp.name];
+            for(let d=1; d<=dInM; d++) {
+                if(db[emp.name].noDisp.includes(d)) r.push("X");
+                else if(db[emp.name].prefs.includes(d)) r.push("P");
+                else r.push("");
+            }
+            rows.push(r);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Cuadrante");
+        XLSX.writeFile(wb, "Peticiones.xlsx");
+    }
+
+    function importFromExcel(e) {
+        const file = e.target.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+            const ws = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(ws, {header: 1});
+            let startRow = -1;
+            for(let i=0; i<json.length; i++) { if(json[i][0] === "Empleado") { startRow = i; break; } }
+            if(startRow === -1) return alert("Usa la plantilla exportada.");
+            json.slice(startRow + 1).forEach(row => {
+                const name = row[0];
+                if(db[name]) {
+                    db[name].noDisp = []; db[name].prefs = [];
+                    for(let d=1; d<=31; d++) {
+                        const val = row[d] ? row[d].toString().toUpperCase() : "";
+                        if(val === "X") db[name].noDisp.push(d);
+                        if(val === "P") db[name].prefs.push(d);
+                    }
+                }
+            });
+            updateView(); alert("Importado con éxito");
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    init();
+</script>
+</body>
+</html>
