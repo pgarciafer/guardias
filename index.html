@@ -127,6 +127,9 @@
         .btn-auto.running{animation:pulse-blue 1.5s infinite;}
 		.cell-imported { background: #dcfce7 !important; color: #166534 !important; font-weight: 900; }
 		
+		.stat-max { background-color: #dcfce7 !important; color: #166534 !important; font-weight: 800; border-radius: 4px; }
+		.stat-min { background-color: #fee2e2 !important; color: #991b1b !important; font-weight: 800; border-radius: 4px; }
+		
     </style>
 </head>
 <body onload="init()">
@@ -1170,48 +1173,99 @@ function renderScoreChart() {
 // ============================================================
 function renderMemoryTab() {
     const heatmap = document.getElementById('memoryHeatmap');
-    if(!heatmap) return;
+    const histTable = document.getElementById('historyTable');
+    if(!heatmap || !histTable) return;
 
-    const maxFF = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalFF||0),1);
-    const maxVP = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalVP||0),1);
-    const maxN  = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalN||0),1);
+    // 1. Cálculo de acumulados y detección de extremos históricos
+    let historyStats = employeesData.map(e => {
+        // Sacamos los datos de la memoria, si no hay ponemos 0
+        const m = patternMemory[e.name] || {totalFF: 0, totalVP: 0, totalN: 0, months: 0};
+        
+        // Calculamos el total absoluto sumando Festivos, Vísperas y Normales
+        const totalG = m.totalFF + m.totalVP + m.totalN;
+        const mo = Math.max(m.months, 1); // Evitamos división por cero si lleva 0 meses
+        
+        return {
+            name: e.name,
+            months: m.months,
+            ff: m.totalFF,
+            vp: m.totalVP,
+            n: m.totalN,
+            total: totalG,
+            avgF: m.totalFF / mo,
+            avgV: m.totalVP / mo
+        };
+    });
 
-    heatmap.innerHTML = employeesData.map(e => {
-        const m = patternMemory[e.name]||{totalFF:0,totalVP:0,totalN:0,months:0};
-        const hFF = Math.round((m.totalFF/maxFF)*28);
-        const hVP = Math.round((m.totalVP/maxVP)*28);
-        const hN  = Math.round((m.totalN/maxN)*28);
-        return `<div class="memory-emp-box">
-            <div class="memory-emp-name" title="${e.name}">${e.name}</div>
-            <div class="memory-bars">
-                <div class="memory-bar" style="height:${hFF}px;background:#f59e0b;" title="Festivos: ${m.totalFF}"></div>
-                <div class="memory-bar" style="height:${hVP}px;background:#3b82f6;" title="Visperas: ${m.totalVP}"></div>
-                <div class="memory-bar" style="height:${hN}px;background:#94a3b8;" title="Norm: ${m.totalN}"></div>
+    // Función auxiliar para obtener el máximo y el mínimo de cualquier columna
+    const getExt = (key) => {
+        const vals = historyStats.map(s => s[key]);
+        return { max: Math.max(...vals), min: Math.min(...vals) };
+    };
+
+    // Calculamos los récords de todas las categorías
+    const ext = {
+        months: getExt('months'), 
+        ff: getExt('ff'), 
+        vp: getExt('vp'), 
+        n: getExt('n'), 
+        total: getExt('total'), 
+        avgF: getExt('avgF'), 
+        avgV: getExt('avgV')
+    };
+
+    // Función auxiliar para pintar de verde (máximo) o rojo (mínimo)
+    const mark = (val, e) => {
+        if (historyStats.length < 2) return ""; // Si solo hay 1 persona no marcamos nada
+        if (val === e.max && e.max !== e.min) return "stat-max";
+        if (val === e.min && e.max !== e.min) return "stat-min";
+        return "";
+    };
+
+    // 2. RENDERIZADO DE LA TABLA HISTÓRICA
+    let th = `<tr>
+        <th>Empleado</th>
+        <th>Meses</th>
+        <th>Festivos</th>
+        <th>Visperas</th>
+        <th>Entre semana</th>
+        <th>GUARDIAS TOTALES</th>
+        <th>Media F/mes</th>
+        <th>Media V/mes</th>
+    </tr>`;
+    
+    let tb = historyStats.map(s => `
+        <tr>
+            <td style="text-align:left;font-weight:700;">${s.name}</td>
+            <td class="${mark(s.months, ext.months)}">${s.months}</td>
+            <td class="${mark(s.ff, ext.ff)}" style="color:#f59e0b;">${s.ff}</td>
+            <td class="${mark(s.vp, ext.vp)}" style="color:#3b82f6;">${s.vp}</td>
+            <td class="${mark(s.n, ext.n)}">${s.n}</td>
+            <td class="${mark(s.total, ext.total)}" style="font-weight:900; background:#f1f5f9;">${s.total}</td>
+            <td class="${mark(s.avgF, ext.avgF)}">${s.avgF.toFixed(1)}</td>
+            <td class="${mark(s.avgV, ext.avgV)}">${s.avgV.toFixed(1)}</td>
+        </tr>`).join('');
+    
+    histTable.innerHTML = th + tb;
+    
+    // 3. RENDERIZADO DEL HEATMAP VISUAL (Gráfico de barras de Guardias Totales)
+    let maxTotal = ext.total.max > 0 ? ext.total.max : 1;
+    heatmap.innerHTML = historyStats.map(s => {
+        let pct = (s.total / maxTotal) * 100; // Porcentaje de llenado de la barra
+        let empColor = employeesData.find(e => e.name === s.name)?.color || "var(--primary)";
+        
+        return `
+        <div style="margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom:4px;">
+                <span>${s.name}</span>
+                <span>${s.total} guardias totales</span>
             </div>
-            <div style="font-size:.55rem;color:#94a3b8;margin-top:3px;">${m.months} meses</div>
+            <div style="width:100%; background:#e2e8f0; border-radius:4px; height:12px; overflow:hidden;">
+                <div style="width:${pct}%; background:${empColor}; height:100%; border-radius:4px; transition: width 0.5s ease-out;"></div>
+            </div>
         </div>`;
     }).join('');
-
-    const histTable = document.getElementById('historyTable');
-    if(!histTable) return;
-    let th = `<tr><th>Empleado</th><th>Meses</th><th>Festivos totales</th><th>Visperas totales</th><th>Entre semana totales</th><th>Media Festivos/mes</th><th>Media Visperas/mes</th></tr>`;
-    let tb = employeesData.map(e => {
-        const m = patternMemory[e.name]||{totalFF:0,totalVP:0,totalN:0,months:0};
-        const mo = Math.max(m.months,1);
-        const color = db[e.name]?.color||'#ccc';
-        return `<tr>
-            <td style="text-align:left;padding-left:8px;font-weight:700;"><span style="display:inline-block;width:10px;height:10px;background:${color};border-radius:50%;margin-right:5px;"></span>${e.name}</td>
-            <td>${m.months}</td>
-            <td style="color:#f59e0b;font-weight:800;">${m.totalFF}</td>
-            <td style="color:#3b82f6;font-weight:800;">${m.totalVP}</td>
-            <td>${m.totalN}</td>
-            <td>${(m.totalFF/mo).toFixed(1)}</td>
-            <td>${(m.totalVP/mo).toFixed(1)}</td>
-        </tr>`;
-    }).join('');
-    histTable.innerHTML = th+tb;
 }
-
 // ============================================================
 // 16. OR-TOOLS STATS DISPLAY
 // ============================================================
@@ -1310,14 +1364,42 @@ function renderOutput() {
     const y = currentDate.getFullYear(), m = currentDate.getMonth();
     const dInM = new Date(y, m + 1, 0).getDate(), first = (new Date(y, m, 1).getDay() || 7) - 1;
 
+    // --- CÁLCULO DE MÁXIMOS Y MÍNIMOS PARA RESALTADO ---
+    // Determinamos de qué matriz sacar las estadísticas según el modo activo
+    const target = isManualMode ? 'asignadoManual' : 'asignado';
+    let statsMap = employeesData.map(e => {
+        let v = 0, f = 0;
+        if (db[e.name] && db[e.name][target]) {
+            db[e.name][target].forEach(d => { if(isFF(d)) f++; else if(isVP(d)) v++; });
+        }
+        return { name: e.name, total: db[e.name][target] ? db[e.name][target].length : 0, v, f };
+    });
+
+    // Función auxiliar para sacar el máximo y el mínimo de un array
+    const getExtremes = (arr, key) => {
+        const values = arr.map(s => s[key]);
+        return { max: Math.max(...values), min: Math.min(...values) };
+    };
+
+    const tExt = getExtremes(statsMap, 'total');
+    const vExt = getExtremes(statsMap, 'v');
+    const fExt = getExtremes(statsMap, 'f');
+
+    // Función auxiliar para devolver la clase CSS correspondiente
+    const getCls = (val, ext) => {
+        if (statsMap.length < 2) return "";
+        if (val === ext.max && ext.max !== ext.min) return "stat-max";
+        if (val === ext.min && ext.max !== ext.min) return "stat-min";
+        return "";
+    };
+
     // 1. CALENDARIO VISUAL (Píldoras)
     const cal = document.getElementById('mainCalendar');
     let h = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(d => `<div class="cal-head">${d}</div>`).join('');
     for (let i = 0; i < first; i++) h += `<div style="background:#f8fafc"></div>`;
     
     for (let d = 1; d <= dInM; d++) {
-        const dataTarget = isManualMode ? 'asignadoManual' : 'asignado';
-        let pills = employeesData.filter(e => db[e.name][dataTarget] && db[e.name][dataTarget].includes(d))
+        let pills = employeesData.filter(e => db[e.name][target] && db[e.name][target].includes(d))
             .map(e => `<span class="pill" style="background:${e.color}">${e.name}</span>`).join('');
         
         h += `<div class="cal-day ${isFF(d) ? 'is-festivo' : ''}">
@@ -1344,18 +1426,24 @@ function renderOutput() {
 
             if (assigned) { if (isFF(d)) fC++; else if (isVP(d)) vC++; }
 
-            // ÚNICA DECLARACIÓN DE VARIABLES PARA EVITAR EL BLOQUEO
             let cont = assigned ? "G" : (isPref ? "P" : (isNo ? "X" : ""));
             let cls = assigned ? "cell-imported" : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
 
             cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls}">${cont}</td>`;
         }
+
+        // Resaltamos auto solo si estamos viéndolo
+        let curT = db[e.name].asignado.length;
+        let classT = !isManualMode ? getCls(curT, tExt) : "";
+        let classV = !isManualMode ? getCls(vC, vExt) : "";
+        let classF = !isManualMode ? getCls(fC, fExt) : "";
+
         return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}
-                <td class="stat-val">${db[e.name].asignado.length}/${db[e.name].qTotal}</td>
-                <td class="stat-val">${vC}/${db[e.name].qV}</td>
-                <td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
+                <td class="stat-val ${classT}">${curT}/${db[e.name].qTotal}</td>
+                <td class="stat-val ${classV}">${vC}/${db[e.name].qV}</td>
+                <td class="stat-val ${classF}">${fC}/${db[e.name].qF}</td></tr>`;
     }).join('');
-    tableAuto.innerHTML = th + tbAuto;
+    if(tableAuto) tableAuto.innerHTML = th + tbAuto;
 
     // 3. ALERTAS DE COBERTURA AUTO
     let conflict = false;
@@ -1374,19 +1462,25 @@ function renderOutput() {
 
                 if (assigned) { if (isFF(d)) fC++; else if (isVP(d)) vC++; }
 
-                // ÚNICA DECLARACIÓN DE VARIABLES (Manual)
                 let cont = assigned ? "G" : (isPref ? "P" : (isNo ? "X" : ""));
                 let cls = assigned ? "cell-imported" : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
 
                 cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls}" 
                           style="cursor:pointer;" onclick="toggleFreeManualAsign('${e.name}',${d})">${cont}</td>`;
             }
+
+            // Resaltamos manual si estamos viéndolo
+            let curT = db[e.name].asignadoManual.length;
+            let classT = isManualMode ? getCls(curT, tExt) : "";
+            let classV = isManualMode ? getCls(vC, vExt) : "";
+            let classF = isManualMode ? getCls(fC, fExt) : "";
+
             return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}
-                    <td class="stat-val">${db[e.name].asignadoManual.length}/${db[e.name].qTotal}</td>
-                    <td class="stat-val">${vC}/${db[e.name].qV}</td>
-                    <td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
+                    <td class="stat-val ${classT}">${curT}/${db[e.name].qTotal}</td>
+                    <td class="stat-val ${classV}">${vC}/${db[e.name].qV}</td>
+                    <td class="stat-val ${classF}">${fC}/${db[e.name].qF}</td></tr>`;
         }).join('');
-        tableManual.innerHTML = th + tbMan;
+        if(tableManual) tableManual.innerHTML = th + tbMan;
 
         // --- SISTEMA DE AUDITORÍA MANUAL ---
         let warnings = [];
@@ -1651,12 +1745,13 @@ function clearAssignment(){
 
 function exportToExcel() {
     const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-    const rows = [["Empleado","AccVP","AccFF","Obj","","","","", ...Array.from({length:dInM},(_,i)=>i+1)]];
+    const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase().replace(" ", "_");
+    
+    const rows = [["Empleado","AccVP","AccFF","Obj","Obj V","Obj F", ...Array.from({length:dInM},(_,i)=>i+1)]];
     
     employeesData.forEach(e => {
-        const targetData = typeof isManualMode !== 'undefined' && isManualMode ? db[e.name].asignadoManual : db[e.name].asignado;
-        let r = [e.name, db[e.name].startingAccVP, db[e.name].startingAccFF, db[e.name].qTotal, "","","",""];
-        
+        const targetData = isManualMode ? db[e.name].asignadoManual : db[e.name].asignado;
+        let r = [e.name, db[e.name].startingAccVP, db[e.name].startingAccFF, db[e.name].qTotal, db[e.name].qV, db[e.name].qF];
         for(let d=1; d<=dInM; d++) {
             if(targetData.includes(d)) r.push("G");
             else if(db[e.name].noDisp.includes(d)) r.push("X");
@@ -1669,7 +1764,7 @@ function exportToExcel() {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Cuadrante");
-    XLSX.writeFile(wb, `Planificador_PRO_${currentDate.getMonth()+1}.xlsx`);
+    XLSX.writeFile(wb, `Planificador_PRO_${monthYear}.xlsx`);
 }
 
 function importFromExcel(e) {
@@ -1679,14 +1774,12 @@ function importFromExcel(e) {
         let start = json.findIndex(r => r[0] === "Empleado");
         if(start === -1) return alert("Formato no válido. Asegúrate de que la primera celda sea 'Empleado'.");
         
-        // Paleta de colores para asignar a los nuevos empleados automáticamente
         const colorPalette = ["#45b7af", "#d9b3c1", "#c8bfe7", "#d1e2c4", "#4a69bd", "#ef4444", "#ccff00", "#00ffff", "#ff00ff", "#006400", "#e67e22", "#3498db", "#2ecc71", "#1abc9c", "#802020", "#b2a2a2", "#1e272e"];
         
         json.slice(start+1).forEach(r => {
             const name = r[0];
-            if(!name) return; // Saltamos filas vacías por si el Excel tiene huecos
+            if(!name) return;
             
-            // Si el empleado NO EXISTE, lo creamos desde cero
             if(!db[name]) {
                 const color = colorPalette[employeesData.length % colorPalette.length];
                 employeesData.push({name, color});
@@ -1696,35 +1789,32 @@ function importFromExcel(e) {
                 };
                 patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
             } else {
-                // Si ya existe, simplemente limpiamos su mes actual para sobreescribirlo
                 db[name].asignado = []; db[name].noDisp = []; db[name].prefs = []; db[name].asignadoManual = [];
             }
             
-            // Leemos acumulados y objetivos (0 por defecto)
-            db[name].startingAccVP = isNaN(parseInt(r[1])) ? 0 : parseInt(r[1]);
-            db[name].startingAccFF = isNaN(parseInt(r[2])) ? 0 : parseInt(r[2]);
+            // --- NUEVA ESTRUCTURA DE COLUMNAS ---
+            db[name].startingAccVP = isNaN(parseInt(r[1])) ? 0 : parseInt(r[1]); // Col B
+            db[name].startingAccFF = isNaN(parseInt(r[2])) ? 0 : parseInt(r[2]); // Col C
+            db[name].qTotal = isNaN(parseInt(r[3])) ? 0 : parseInt(r[3]);        // Col D
+            db[name].qV = isNaN(parseInt(r[4])) ? 0 : parseInt(r[4]);            // Col E (Vísperas)
+            db[name].qF = isNaN(parseInt(r[5])) ? 0 : parseInt(r[5]);            // Col F (Festivos)
             
-            let objValue = parseInt(r[3]);
-            db[name].qTotal = isNaN(objValue) ? 0 : objValue; 
-            
-            // Leemos los 31 días
+            // Los días empiezan en la Col G (índice 6). Si d=1, r[1+5] = r[6]
             for(let d=1; d<=31; d++) {
-                let v = r[d+7]?.toString().toUpperCase(); 
+                let v = r[d+5]?.toString().toUpperCase(); 
                 if(v === "G") { db[name].asignado.push(d); db[name].asignadoManual.push(d); }
                 if(v === "X") db[name].noDisp.push(d);
                 if(v === "P") db[name].prefs.push(d);
             }
         });
         
-        saveMonthState(); // Guardamos en memoria
-        addLog("📥 Excel importado con éxito. Empleados actualizados.");
-        updateView(); // Refrescamos las pantallas
+        saveMonthState();
+        addLog("📥 Excel importado con éxito. Objetivos V/F actualizados.");
+        updateView();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
-    // Reseteamos el input para permitir volver a subir el mismo archivo si se cambia algo
     e.target.value = ''; 
 }
-
 
 async function exportToPDF() {
     // 1. CONTROL DE VALIDACIÓN
