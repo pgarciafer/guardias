@@ -2,178 +2,252 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Planificador Pro - Modo Manual con Auditoría</title>
+    <title>Planificador PRO — Beam Search · Pareto · Memoria · OR-Tools</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
-            --primary: #3b82f6; --primary-light: #dbeafe;
-            --bg: #f8fafc; --text: #1e293b;
-            --danger: #ef4444; --border: #cbd5e1; 
-            --warning: #f59e0b; 
-            --warning-light: #fef3c7; 
-            --friday-light: #fefce8;  
-            --success: #107c10;
+            --primary:#3b82f6;--primary-light:#dbeafe;--bg:#f0f4ff;
+            --text:#1e293b;--danger:#ef4444;--border:#cbd5e1;
+            --warning:#f59e0b;--warning-light:#fef3c7;--friday-light:#fefce8;
+            --success:#10b981;--purple:#8b5cf6;--purple-light:#ede9fe;
+            --teal:#0d9488;
         }
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);margin:0;padding-bottom:60px;}
+        .header{background:white;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(59,130,246,0.08);}
+        .logo{display:flex;align-items:center;gap:10px;}
+        .logo-title{font-weight:900;font-size:1.15rem;color:var(--primary);}
+        .logo-badge{font-size:.6rem;font-weight:800;background:linear-gradient(135deg,#8b5cf6,#3b82f6);color:white;padding:3px 7px;border-radius:20px;letter-spacing:.5px;}
+        .month-nav{display:flex;align-items:center;gap:12px;background:#f1f5f9;padding:5px 14px;border-radius:12px;border:1px solid var(--border);}
+        .month-display{font-weight:800;min-width:140px;text-align:center;text-transform:capitalize;font-size:.95rem;}
+        .nav-arrow{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--primary);font-weight:bold;}
+        .btn-group{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+        .btn-header{padding:7px 12px;border-radius:8px;font-weight:700;cursor:pointer;border:1px solid var(--border);transition:.2s;font-size:.78rem;display:flex;align-items:center;gap:4px;}
+        .btn-auto{background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;border:none;box-shadow:0 2px 8px rgba(59,130,246,.3);}
+        .btn-manual{background:#64748b;color:white;border:none;}
+        .btn-manual.active{background:var(--danger);}
+        .btn-pdf{background:#e74c3c;color:white;border:none;}
+        .btn-excel{background:var(--success);color:white;border:none;}
+        .btn-clear{background:white;color:var(--danger);border:1px solid var(--danger);}
+        .btn-pareto{background:linear-gradient(135deg,var(--teal),var(--success));color:white;border:none;}
+        .container{max-width:1600px;margin:16px auto;padding:0 16px;}
+        .card{background:white;border-radius:14px;padding:18px;box-shadow:0 2px 16px rgba(0,0,0,0.04);margin-bottom:16px;border:1px solid var(--border);}
+        .card-manual{border:2px solid var(--danger);background:#fffcfc;margin-top:24px;}
+        .tab-nav{display:flex;justify-content:center;margin-bottom:16px;gap:8px;}
+        .tab-btn{padding:9px 22px;border-radius:50px;border:1px solid var(--border);background:white;cursor:pointer;font-weight:700;color:#64748b;}
+        .tab-btn.active{background:var(--primary);color:white;}
+        .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+        .cal-head{background:#f1f5f9;padding:10px;text-align:center;font-weight:800;font-size:.72rem;color:#475569;}
+        .cal-day{background:white;min-height:100px;padding:8px;position:relative;}
+        .cal-day.is-festivo{background:var(--warning-light);}
+        .btn-fest-toggle{position:absolute;top:4px;right:4px;font-size:.58rem;cursor:pointer;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:white;font-weight:bold;z-index:10;}
+        .btn-fest-toggle.active{background:var(--warning);color:white;border-color:var(--warning);}
+        .pill{font-size:.62rem;padding:3px 7px;border-radius:6px;color:white;margin-bottom:3px;font-weight:800;text-align:center;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .matrix-wrapper{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+        table{width:100%;border-collapse:collapse;font-size:.78rem;background:white;}
+        th,td{border:1px solid var(--border);text-align:center;padding:5px 2px;min-width:32px;height:32px;}
+        th{background:#f1f5f9;font-weight:800;color:#475569;cursor:pointer;}
+        .col-festivo{background:var(--warning-light)!important;}
+        .col-viernes{background:var(--friday-light)!important;}
+        .cell-assigned{font-weight:900;color:#000;font-size:1rem;}
+        .cell-no{background:var(--danger)!important;color:transparent!important;}
+        .cell-pref{background:var(--primary-light)!important;color:var(--primary)!important;font-weight:900;}
+        .row-name{text-align:left;padding-left:10px;font-weight:800;color:white;min-width:140px;position:sticky;left:0;z-index:10;border-right:2px solid var(--border);}
+        .stat-val{font-weight:800;background:#f8fafc;font-size:.68rem;border-left:2px solid var(--border);}
+        .employee-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;}
+        .emp-card{background:white;border-radius:14px;padding:18px;border:1px solid var(--border);position:relative;}
+        .emp-card::before{content:'';position:absolute;top:0;left:0;width:5px;height:100%;background:var(--emp-color);border-radius:14px 0 0 14px;}
+        .btn-del-emp{position:absolute;top:14px;right:14px;background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:1rem;}
+        .emp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-right:22px;}
+        .emp-name{font-size:1.05rem;font-weight:bold;margin:0;}
+        .emp-blocked-badge{font-size:.65rem;font-weight:bold;background:#fee2e2;color:var(--danger);padding:2px 7px;border-radius:10px;}
+        .section-title{font-size:.62rem;font-weight:bold;color:var(--primary);text-transform:uppercase;margin:10px 0 4px 0;}
+        .input-group{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#f8fafc;padding:8px;border-radius:10px;border:1px solid #e2e8f0;}
+        .input-group.grid-2{grid-template-columns:repeat(2,1fr);}
+        .input-field label{font-size:.62rem;color:#64748b;font-weight:800;display:block;margin-bottom:3px;}
+        .input-field input{width:100%;padding:6px;border:1px solid var(--border);border-radius:7px;font-weight:bold;text-align:center;box-sizing:border-box;}
+        .btn-actions-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+        .btn-action-pick{padding:9px;border-radius:9px;border:1px solid var(--border);background:white;cursor:pointer;font-size:.82rem;font-weight:600;}
+        .log-container{margin-top:16px;padding:12px;background:#0f172a;color:#f8fafc;border-radius:8px;font-family:monospace;font-size:.75rem;height:180px;overflow-y:auto;border-left:4px solid var(--primary);}
+        .log-entry{margin-bottom:3px;opacity:.9;}
+        .log-tag{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px;font-size:.68rem;margin-left:4px;}
+        .tag-ff{color:#fcd34d;font-weight:bold;}.tag-vp{color:#fef08a;font-weight:bold;}
+        .tag-beam{color:#86efac;font-weight:bold;}.tag-pareto{color:#c4b5fd;font-weight:bold;}
+        .tag-memory{color:#7dd3fc;font-weight:bold;}.tag-ortools{color:#fb923c;font-weight:bold;}
+        #validationMessage{display:none;background:#fee2e2;color:#991b1b;padding:10px 18px;border-radius:8px;font-weight:700;border-left:5px solid var(--danger);position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:1001;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);}
+        #conflictAlert,#conflictAlertManual{display:none;background:#fff1f2;color:#9f1239;padding:12px;border-radius:8px;margin-top:12px;border:1px solid #fda4af;}
+        .hidden{display:none!important;}
+        .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,.5);display:none;justify-content:center;align-items:center;z-index:1000;}
+        .modal-content{background:white;padding:28px;border-radius:22px;width:400px;}
+        .p-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:16px;}
+        .p-day{padding:10px 0;border:1px solid var(--border);text-align:center;cursor:pointer;border-radius:8px;font-size:.85rem;font-weight:700;}
+        .p-day.active-no{background:var(--danger);color:white;}
+        .p-day.active-yes{background:var(--primary);color:white;}
 
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 50px; }
-        
-        .header { background: white; padding: 1rem 2rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .month-nav { display: flex; align-items: center; gap: 15px; background: #f1f5f9; padding: 6px 15px; border-radius: 12px; border: 1px solid var(--border); }
-        .month-display { font-weight: 800; min-width: 140px; text-align: center; text-transform: capitalize; font-size: 1rem; color: var(--text); }
-        .nav-arrow { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--primary); font-weight: bold; transition: 0.2s; }
-        .nav-arrow:hover { transform: scale(1.1); }
-        
-        .btn-group { display: flex; gap: 8px; }
-        .btn-header { padding: 8px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); transition: 0.2s; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
-        .btn-header:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-auto { background: var(--primary); color: white; border: none; box-shadow: 0 2px 4px rgba(59,130,246,0.3); }
-        .btn-manual { background: #64748b; color: white; border: none; }
-        .btn-manual.active { background: var(--danger); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4); }
-        .btn-pdf { background: #e74c3c; color: white; border: none; }
-        .btn-excel { background: var(--success); color: white; border: none; }
-        .btn-clear { background: white; color: var(--danger); border: 1px solid var(--danger); }
+        /* ====== BEAM SEARCH PANEL ====== */
+        .beam-panel{background:linear-gradient(135deg,#0f172a,#1e1b4b);color:white;border-radius:14px;padding:18px;margin-bottom:16px;border:1px solid #312e81;}
+        .beam-title{font-size:.8rem;font-weight:800;color:#a5b4fc;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+        .beam-candidates{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+        .beam-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;cursor:pointer;transition:.2s;}
+        .beam-card:hover{background:rgba(255,255,255,.1);}
+        .beam-card.selected{border-color:#818cf8;background:rgba(129,140,248,.15);}
+        .beam-rank{font-size:.62rem;color:#94a3b8;font-weight:700;margin-bottom:4px;}
+        .beam-score{font-size:1.1rem;font-weight:900;color:#a5b4fc;}
+        .beam-sub{font-size:.65rem;color:#94a3b8;margin-top:2px;}
+        .beam-bars{margin-top:8px;}
+        .beam-bar-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
+        .beam-bar-label{font-size:.6rem;color:#94a3b8;width:50px;text-align:right;}
+        .beam-bar-track{flex:1;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;}
+        .beam-bar-fill{height:100%;border-radius:3px;transition:.4s;}
+        .pareto-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:800;background:rgba(196,181,253,.15);color:#c4b5fd;border:1px solid rgba(196,181,253,.3);border-radius:10px;padding:2px 6px;margin-top:4px;}
 
-        .container { max-width: 1500px; margin: 20px auto; padding: 0 20px; }
-        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 15px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid var(--border); }
-        
-        .card-manual { border: 2px solid var(--danger); background: #fffcfc; }
+        /* ====== OR-TOOLS PANEL ====== */
+        .ortools-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;}
+        .ortools-stat{background:#f8fafc;border-radius:10px;padding:10px;text-align:center;border:1px solid var(--border);}
+        .ortools-stat-val{font-size:1.3rem;font-weight:900;color:var(--primary);}
+        .ortools-stat-label{font-size:.65rem;color:#64748b;margin-top:2px;}
 
-        .tab-nav { display: flex; justify-content: center; margin-bottom: 20px; gap: 10px; }
-        .tab-btn { padding: 10px 20px; border-radius: 50px; border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 600; color: #64748b; transition: 0.3s; }
-        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2); }
+        /* ====== MEMORY PANEL ====== */
+        .memory-heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px;}
+        .memory-emp-box{background:#f8fafc;border-radius:8px;padding:8px;border:1px solid var(--border);}
+        .memory-emp-name{font-size:.65rem;font-weight:800;color:#475569;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .memory-bars{display:flex;gap:2px;align-items:flex-end;height:28px;}
+        .memory-bar{flex:1;border-radius:2px;min-height:2px;transition:.3s;}
 
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-        .cal-head { background: #f1f5f9; padding: 12px; text-align: center; font-weight: 800; font-size: 0.75rem; color: #475569; text-transform: uppercase; }
-        .cal-day { background: white; min-height: 110px; padding: 10px; position: relative; transition: 0.2s; }
-        .cal-day.is-festivo { background: var(--warning-light); }
-        .pill { font-size: 0.65rem; padding: 4px 8px; border-radius: 6px; color: white; margin-bottom: 4px; font-weight: 800; text-align: center; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        progress-ring {display:block;}
+        .algo-progress{display:none;position:fixed;bottom:20px;right:20px;background:white;border-radius:14px;padding:16px 22px;box-shadow:0 8px 30px rgba(0,0,0,.15);border:1px solid var(--border);z-index:500;min-width:260px;}
+        .algo-progress.visible{display:block;}
+        .algo-progress-title{font-weight:800;font-size:.85rem;color:var(--primary);margin-bottom:8px;}
+        .algo-progress-bar{height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin-bottom:5px;}
+        .algo-progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width .3s;}
+        .algo-progress-phase{font-size:.7rem;color:#64748b;}
 
-        .matrix-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; background: white; }
-        th, td { border: 1px solid var(--border); text-align: center; padding: 6px 2px; min-width: 32px; height: 34px; }
-        th { background: #f1f5f9; font-weight: 800; color: #475569; }
-        .col-festivo { background: var(--warning-light) !important; border-color: #d97706 !important; }
-        .col-viernes { background: var(--friday-light) !important; }
-        .cell-assigned { font-weight: 900; color: #000; font-size: 1.1rem; }
-        .cell-no { background: var(--danger) !important; color: transparent !important; cursor: not-allowed !important; }
-        .cell-pref { background: var(--primary-light) !important; color: var(--primary) !important; font-weight: 900; }
-        .row-name { text-align: left; padding-left: 12px; font-weight: 800; color: white; min-width: 160px; position: sticky; left: 0; z-index: 10; border-right: 2px solid var(--border); }
-        .stat-val { font-weight: 800; color: #1e293b; background: #f8fafc; font-size: 0.7rem; border-left: 2px solid var(--border); }
-
-        .employee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
-        .emp-card { background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); position: relative; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .emp-card::before { content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 100%; background: var(--emp-color); border-radius: 16px 0 0 16px; }
-        .btn-del-emp { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 1.1rem; }
-        .btn-del-emp:hover { color: var(--danger); }
-        .emp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .emp-name { font-size: 1.15rem; font-weight: bold; margin: 0; color: #0f172a; }
-        .input-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 15px; background: #f8fafc; padding: 12px; border-radius: 12px; }
-        .input-field label { font-size: 0.65rem; color: #64748b; font-weight: 800; display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.025em; }
-        .input-field input { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 8px; font-weight: bold; box-sizing: border-box; text-align: center; }
-        .btn-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn-action-pick { padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: white; cursor: pointer; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
-
-        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-4px);} 75% {transform: translateX(4px);} }
-        .cell-invalid { background: #fca5a5 !important; animation: shake 0.3s ease-in-out; border: 2px solid var(--danger) !important; }
-        #validationMessage { display: none; background: #fee2e2; color: #991b1b; padding: 12px 20px; border-radius: 8px; font-weight: 700; border-left: 5px solid var(--danger); position: fixed; top: 100px; left: 50%; transform: translateX(-50%); z-index: 1001; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        #conflictAlert { display: none; background: #fff1f2; color: #9f1239; padding: 15px; border-radius: 8px; margin-top: 15px; justify-content: space-between; align-items: center; border: 1px solid #fda4af; font-weight: bold; }
-
-        .log-container { margin-top: 20px; padding: 15px; background: #1e293b; color: #f8fafc; border-radius: 8px; font-family: monospace; font-size: 0.8rem; height: 160px; overflow-y: auto; border-left: 4px solid var(--primary); }
-        .log-entry { margin-bottom: 4px; opacity: 0.9; }
-        .log-entry span { color: #94a3b8; font-size: 0.7rem; margin-right: 8px; }
-        .log-tag { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-left: 5px; }
-
-        .hidden { display: none !important; }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
-        .modal-content { background: white; padding: 30px; border-radius: 24px; width: 400px; }
-        .p-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 20px; }
-        .p-day { padding: 12px 0; border: 1px solid var(--border); text-align: center; cursor: pointer; border-radius: 10px; font-size: 0.9rem; font-weight: 700; transition: 0.2s; }
-        .p-day.active-no { background-color: var(--danger) !important; color: white !important; }
-        .p-day.active-yes { background-color: var(--primary) !important; color: white !important; }
-
-        #manualWarningsList li { margin-bottom: 3px; }
+        @keyframes pulse-blue{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.4);}50%{box-shadow:0 0 0 8px rgba(59,130,246,0);}}
+        .btn-auto.running{animation:pulse-blue 1.5s infinite;}
+		.cell-imported { background: #dcfce7 !important; color: #166534 !important; font-weight: 900; }
+		
     </style>
 </head>
 <body onload="init()">
 
 <div id="validationMessage"></div>
 
+<div id="algoProgress" class="algo-progress">
+    <div class="algo-progress-title">🧠 Motor IA Avanzado</div>
+    <div class="algo-progress-bar"><div id="progressFill" class="algo-progress-fill" style="width:0%"></div></div>
+    <div id="progressPhase" class="algo-progress-phase">Iniciando...</div>
+</div>
+
 <div class="header">
-    <div style="font-weight: 900; font-size: 1.3rem; color: var(--primary);">Planificador de Turnos</div>
+    <div class="logo">
+        <div class="logo-title">Planificador de Turnos</div>
+        <span class="logo-badge">PRO · BEAM · PARETO · OR</span>
+    </div>
     <div class="month-nav">
         <button class="nav-arrow" onclick="changeMonth(-1)">❮</button>
         <span id="monthDisplay" class="month-display"></span>
         <button class="nav-arrow" onclick="changeMonth(1)">❯</button>
     </div>
     <div class="btn-group">
-        <button id="btn-manual-mode" class="btn-header btn-manual" onclick="toggleManualMode()">🛠️ Edición Manual</button>
-        <button class="btn-header btn-pdf" onclick="exportToPDF()">🖨️ Exportar PDF</button>
-        <button class="btn-header btn-excel" onclick="exportToExcel()">📤 Exportar Excel</button>
+        <button id="btn-manual-mode" class="btn-header btn-manual" onclick="toggleManualMode()">🛠️ Activar Manual (Clonar)</button>
+        <button class="btn-header btn-pareto" onclick="showParetoAnalysis()">🧮 Pareto</button>
+        <button class="btn-header btn-pdf" onclick="exportToPDF()">🖨️ PDF</button>
+        <button class="btn-header btn-excel" onclick="exportToExcel()">📤 Excel</button>
         <button class="btn-header btn-excel" onclick="document.getElementById('importExcel').click()">📥 Importar</button>
-        <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onchange="importFromExcel(event)">
+        <input type="file" id="importExcel" hidden accept=".xlsx,.xls,.csv" onchange="importFromExcel(event)">
         <button class="btn-header btn-clear" onclick="clearAssignment()">🗑️ Limpiar</button>
-        <button class="btn-header btn-auto" onclick="generate()">🚀 Generar Inteligente</button>
+        <button id="btn-generar" class="btn-header btn-auto" onclick="generatePro()">🚀 Generar PRO</button>
     </div>
 </div>
 
 <div class="container">
     <div class="tab-nav">
         <button id="btn-tab-cal" class="tab-btn active" onclick="showTab('calendario')">📅 Cuadrante</button>
+        <button id="btn-tab-beam" class="tab-btn" onclick="showTab('beam')" style="display: none;">🔬 Beam Search</button>
+        <button id="btn-tab-memory" class="tab-btn" onclick="showTab('memory')">🧠 Memoria</button>
         <button id="btn-tab-emp" class="tab-btn" onclick="showTab('empleados')">👥 Empleados</button>
     </div>
 
     <div id="tab-calendario">
-        <div id="pdf-page-1" class="card" style="padding: 10px;">
-            <h2 id="pdf-title-1" style="display:none; text-align:center; color: #333;">CALENDARIO VISUAL</h2>
+        <div id="pdf-page-1" class="card" style="padding:10px;">
+            <h2 id="pdf-title-1" style="display:none;text-align:center;color:#333;">CALENDARIO VISUAL</h2>
             <div id="mainCalendar" class="calendar-grid"></div>
         </div>
-        
+
         <div id="pdf-page-2" class="card">
-            <h2 id="pdf-title-2" style="display:none; text-align:center; color: #333;">CUADRANTE AUTO (REGLAS ESTRICTAS)</h2>
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:15px;">
-                <h3 style="margin: 0; font-size: 0.9rem; color: #475569;">Cuadrante Generado por IA (Reglas Restrictivas)</h3>
-                <span style="font-size: 0.8rem; color: #475569; display:flex; gap:10px;">
-                    <span style="display:flex; align-items:center; gap:5px;"><span style="width:12px; height:12px; background:var(--danger); border-radius:2px;"></span> Indisponible</span>
-                    <span style="display:flex; align-items:center; gap:5px;"><span style="width:12px; height:12px; background:var(--primary-light); border-radius:2px;"></span> Petición</span>
-                </span>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">
+                <div>
+                    <h3 style="margin:0;font-size:.88rem;color:#475569;">🤖 Cuadrante PRO — Motor Automático</h3>
+                    <span id="status-validated-auto" style="display:none;font-size:.72rem;font-weight:bold;color:var(--success);background:#dcfce7;padding:3px 8px;border-radius:6px;margin-top:6px;">🔒 VALIDADO COMO OFICIAL</span>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="btn-validate-auto" style="background:var(--success);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="validarCuadrante('auto')">✅ Validar Automático</button>
+                    <span style="font-size:.75rem;color:#475569;">💡 Clic en número para Festivo</span>
+                </div>
             </div>
-            
             <div class="matrix-wrapper"><table id="matrixTable"></table></div>
-            
-            <div id="conflictAlert">
-                <span>⚠️ Conflictos o exceso de personal detectado (>2).</span>
-                <button style="background:#be123c; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold;" onclick="resolveConflicts()">Autocorregir</button>
+            <div id="conflictAlert" style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-weight:bold;">⚠️ Más de 2 asignados en algún día.</span>
+                <button style="background:#be123c;color:white;border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:bold;" onclick="resolveConflicts()">Autocorregir</button>
             </div>
-            
-            <div id="auditLog" class="log-container">
-                <div class="log-entry">El cuadrante está listo para ser modificado o rellenado.</div>
-            </div>
+
+            <div id="ortoolsStats" class="ortools-stats" style="display:none;"></div>
+            <div id="auditLog" class="log-container"><div class="log-entry">Motor PRO listo. Pulsa "Generar PRO" para comenzar.</div></div>
         </div>
 
         <div id="pdf-page-manual" class="card card-manual hidden">
-            <h2 id="pdf-title-manual" style="display:none; text-align:center; color: #333;">CUADRANTE MANUAL (MODO LIBRE)</h2>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <div>
-                    <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: var(--danger);">🛠️ Edición Manual Libre</h3>
-                    <span style="font-size: 0.8rem; color: #64748b;">Este cuadrante permite saltarse normas, pero te avisará de las reglas que incumplas.</span>
+                    <h3 style="margin:0 0 4px 0;font-size:1rem;color:var(--danger);">🛠️ Cuadrante Libre Manual</h3>
+                    <span style="font-size:.75rem;color:#64748b;">Copia del automático. Haz clic en las celdas para reasignar sin bloqueos. Auditoría visual activa.</span>
                 </div>
-                <button style="padding: 8px 15px; border-radius: 8px; background: #e2e8f0; border: none; font-weight: bold; cursor: pointer;" onclick="syncManualFromAuto()">🔄 Restaurar desde Auto</button>
+                <div style="display:flex;gap:8px;">
+					<button id="btn-validate-manual" style="background:var(--success);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="validarCuadrante('manual')">✅ Validar MANUAL</button>
+					
+					<button style="background:var(--primary);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="autoCompleteManual()">🪄 Autocompletar</button>
+    
+					<button style="padding:7px 14px;border-radius:8px;background:#e2e8f0;border:none;font-weight:bold;cursor:pointer;" onclick="syncManualFromAuto()">🔄 Restaurar a estado Auto</button>
+				</div>
             </div>
-            
             <div class="matrix-wrapper"><table id="matrixTableManual"></table></div>
-            
-            <div id="conflictAlertManual" style="display:none; background:#fff1f2; color:#9f1239; padding:15px; border-radius:8px; margin-top:15px; border:1px solid #fda4af;">
-                <div style="font-weight:bold; margin-bottom: 8px;">⚠️ Auditoría: Avisos de Normas Incumplidas</div>
-                <ul id="manualWarningsList" style="margin: 0; padding-left: 20px; font-size: 0.85rem;"></ul>
+            <div id="conflictAlertManual">
+                <div style="font-weight:bold;margin-bottom:6px;">⚠️ Auditoría de Reglas Incumplidas:</div>
+                <ul id="manualWarningsList" style="margin:0;padding-left:18px;font-size:.82rem;color:#9f1239;"></ul>
             </div>
         </div>
     </div>
 
+    <div id="tab-beam" class="hidden">
+        <div class="beam-panel">
+            <div class="beam-title">🔬 Beam Search — Top 3 Candidatos por Día <span style="font-size:.65rem;color:#64748b;font-weight:400;">(requiere generar primero)</span></div>
+            <div id="beamDaySelector" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;"></div>
+            <div id="beamCandidates" class="beam-candidates">
+                <div style="color:#64748b;font-size:.8rem;grid-column:1/-1;text-align:center;padding:30px;">Selecciona un día para ver los candidatos evaluados por Beam Search</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3 style="margin:0 0 12px 0;font-size:.9rem;color:#475569;">📊 Evolución del Score Global durante la Generación</h3>
+            <canvas id="scoreChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <div id="tab-memory" class="hidden">
+        <div class="card">
+            <h3 style="margin:0 0 6px 0;font-size:.9rem;">🧠 Memoria de Patrones Históricos</h3>
+            <p style="font-size:.78rem;color:#64748b;margin:0 0 14px 0;">El motor aprende qué empleados tienen más turnos de cada tipo y ajusta la siguiente generación para compensar de forma dinámica.</p>
+            <p style="font-size:.7rem; color:#64748b;"><b>Leyenda:</b> 🟧 Festivos | 🟦 Vísperas | ⬜ Normales</p>
+			<div id="memoryHeatmap" class="memory-heatmap"></div>
+        </div>
+        <div class="card">
+            <h3 style="margin:0 0 12px 0;font-size:.9rem;">📈 Acumulados Históricos (todos los meses guardados)</h3>
+            <div class="matrix-wrapper"><table id="historyTable"></table></div>
+        </div>
+    </div>
+
     <div id="tab-empleados" class="hidden">
-        <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
-            <button class="btn-header" style="background: var(--success); color: white; border: none;" onclick="openAddEmployeeModal()">➕ Añadir Empleado</button>
+        <div style="margin-bottom:16px;display:flex;justify-content:flex-end;">
+            <button class="btn-header" style="background:var(--success);color:white;border:none;" onclick="openAddEmployeeModal()">➕ Añadir Empleado</button>
         </div>
         <div id="employeeList" class="employee-grid"></div>
     </div>
@@ -181,473 +255,1174 @@
 
 <div id="modal" class="modal">
     <div class="modal-content">
-        <h3 id="modalName" style="margin:0; color: #1e293b;"></h3>
-        <p id="modalDesc" style="font-size: 0.85rem; color: #64748b; margin-top: 5px;"></p>
+        <h3 id="modalName" style="margin:0;color:#1e293b;"></h3>
+        <p id="modalDesc" style="font-size:.82rem;color:#64748b;margin-top:4px;"></p>
         <div id="pickerGrid" class="p-grid"></div>
-        <button style="width:100%; padding:14px; margin-top:25px; background:var(--primary); color:white; border:none; border-radius:12px; cursor:pointer; font-weight:bold;" onclick="closeModal()">Guardar Cambios</button>
+        <button style="width:100%;padding:13px;margin-top:22px;background:var(--primary);color:white;border:none;border-radius:12px;cursor:pointer;font-weight:bold;" onclick="closeModal()">Guardar Cambios</button>
     </div>
 </div>
 
 <div id="modalAddEmp" class="modal">
-    <div class="modal-content" style="width: 300px;">
-        <h3 style="margin:0 0 20px 0;">Nuevo Empleado</h3>
-        <div class="input-field" style="margin-bottom: 15px;">
-            <label>Nombre</label>
-            <input type="text" id="newEmpName" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px;" placeholder="Ej: Carlos Vega">
-        </div>
-        <div class="input-field">
-            <label>Color</label>
-            <input type="color" id="newEmpColor" style="width: 100%; height: 40px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer;" value="#3b82f6">
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-            <button style="flex:1; padding: 12px; background: #e2e8f0; border: none; border-radius: 10px; cursor:pointer; font-weight:bold;" onclick="closeAddEmployeeModal()">Cancelar</button>
-            <button style="flex:1; padding: 12px; background: var(--success); color: white; border: none; border-radius: 10px; cursor:pointer; font-weight:bold;" onclick="addEmployee()">Añadir</button>
+    <div class="modal-content" style="width:280px;">
+        <h3 style="margin:0 0 18px 0;">Nuevo Empleado</h3>
+        <div class="input-field" style="margin-bottom:12px;"><label>Nombre</label><input type="text" id="newEmpName" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;"></div>
+        <div class="input-field"><label>Color</label><input type="color" id="newEmpColor" style="width:100%;height:38px;border:1px solid var(--border);border-radius:8px;cursor:pointer;" value="#3b82f6"></div>
+        <div style="display:flex;gap:8px;margin-top:22px;">
+            <button style="flex:1;padding:11px;background:#e2e8f0;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="closeAddEmployeeModal()">Cancelar</button>
+            <button style="flex:1;padding:11px;background:var(--success);color:white;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="addEmployee()">Añadir</button>
         </div>
     </div>
 </div>
 
+<div id="modalEditEmp" class="modal">
+    <div class="modal-content" style="width:280px;">
+        <h3 style="margin:0 0 18px 0;">Editar Empleado</h3>
+        <input type="hidden" id="editEmpOldName"> <div class="input-field" style="margin-bottom:12px;"><label>Nombre</label><input type="text" id="editEmpName" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;"></div>
+        <div class="input-field"><label>Color</label><input type="color" id="editEmpColor" style="width:100%;height:38px;border:1px solid var(--border);border-radius:8px;cursor:pointer;"></div>
+        <div style="display:flex;gap:8px;margin-top:22px;">
+            <button style="flex:1;padding:11px;background:#e2e8f0;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="closeEditEmployeeModal()">Cancelar</button>
+            <button style="flex:1;padding:11px;background:var(--primary);color:white;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="saveEditEmployee()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+
+
+<div id="modalPareto" class="modal">
+    <div class="modal-content" style="width:min(680px,92vw);max-height:80vh;overflow-y:auto;">
+        <h3 style="margin:0 0 6px 0;color:#1e293b;">🧮 Análisis Pareto Multiobjetivo</h3>
+        <p style="font-size:.78rem;color:#64748b;margin:0 0 16px 0;">Frente de Pareto: soluciones donde ningún objetivo puede mejorar sin empeorar otro. Verde = óptimo Pareto.</p>
+        <canvas id="paretoChart" height="220"></canvas>
+        <div id="paretoDetails" style="margin-top:14px;font-size:.78rem;"></div>
+        <button style="width:100%;padding:12px;margin-top:18px;background:var(--primary);color:white;border:none;border-radius:10px;cursor:pointer;font-weight:bold;" onclick="closeParetoModal()">Cerrar</button>
+    </div>
+</div>
+
 <script>
-    let employeesData = [
-        { name: "Laura Remedios", color: "#45b7af" }, { name: "Laura Garcia", color: "#d9b3c1" },
-        { name: "Mayte", color: "#c8bfe7" }, { name: "Gema", color: "#d1e2c4" },
-        { name: "Pilar", color: "#4a69bd" }, { name: "Oscar", color: "#ef4444" },
-        { name: "Raquel DC", color: "#ccff00" }, { name: "Begoña", color: "#00ffff" },
-        { name: "Carmen", color: "#ff00ff" }, { name: "Belén", color: "#006400" },
-        { name: "Jorge", color: "#e67e22" }, { name: "Paola", color: "#3498db" },
-        { name: "Raquel DM", color: "#2ecc71" }, { name: "Rober", color: "#1abc9c" },
-        { name: "Elena", color: "#802020" }, { name: "Maria", color: "#b2a2a2" },
-        { name: "Andrea", color: "#1e272e" }
-    ];
+// ============================================================
+// 1. DATOS Y GLOBALES
+// ============================================================
+let employeesData = [];
 
-    let currentDate = new Date(2026, 4, 1);
-    let db = {};
-    let manualHolidays = [];
-    let lastManualAction = { name: null, day: null };
-    let isManualMode = false;
+let currentDate = new Date(2026, 0, 1); 
+let db = {};
+let manualHolidays = [];
+let monthDataStore = {};
+let isManualMode = false;
+let isMonthValidated = false;
+let lastManualAction = {name:null,day:null};
+let curEmp = null, curMode = '', isDragging = false;
 
-    function init() {
+// Motor PRO state
+let beamSnapshots = {};      
+let scoreHistory = [];        
+let patternMemory = {};       
+let ortoolsResult = null;     
+
+// ============================================================
+// 2. INICIALIZACIÓN
+// ============================================================
+function init() {
+    employeesData.forEach(e => {
+        if(!db[e.name]) {
+            db[e.name] = {
+                ...e, noDisp:[], prefs:[], asignado:[], asignadoManual:[],
+                qTotal:0, qV:0, qF:0, startingAccVP:0, startingAccFF:0
+            };
+        }
+        if(!patternMemory[e.name]) {
+            patternMemory[e.name] = {totalFF:0, totalVP:0, totalN:0, months:0};
+        }
+    });
+    loadMonthState();
+    updateView();
+}
+
+// ============================================================
+// 3. MEMORIA Y ACUMULADOS
+// ============================================================
+function getMonthKey(date=currentDate) { return `${date.getFullYear()}-${date.getMonth()}`; }
+
+function saveMonthState() {
+    const key = getMonthKey();
+    monthDataStore[key] = {holidays:[...manualHolidays], isValidated:isMonthValidated, employees:{}};
+    employeesData.forEach(e => {
+        if(!db[e.name]) return;
+        monthDataStore[key].employees[e.name] = {
+            noDisp:[...(db[e.name].noDisp||[])],
+            prefs:[...(db[e.name].prefs||[])],
+            asignado:[...(db[e.name].asignado||[])],
+            asignadoManual:[...(db[e.name].asignadoManual||[])],
+            startingAccVP:db[e.name].startingAccVP||0,
+            startingAccFF:db[e.name].startingAccFF||0,
+            qTotal:db[e.name].qTotal||0,
+            qV:db[e.name].qV||0,
+            qF:db[e.name].qF||0
+        };
+    });
+}
+
+function loadMonthState() {
+    const key = getMonthKey();
+    const saved = monthDataStore[key];
+    if(saved) {
+        manualHolidays=[...(saved.holidays||[])];
+        isMonthValidated=saved.isValidated||false;
         employeesData.forEach(e => {
-            if(!db[e.name]) db[e.name] = { ...e, noDisp: [], prefs: [], asignado: [], asignadoManual: [], qTotal: 0, qV: 0, qF: 0 };
+            const data=saved.employees[e.name];
+            db[e.name].noDisp=data?[...(data.noDisp||[])]:[];
+            db[e.name].prefs=data?[...(data.prefs||[])]:[];
+            db[e.name].asignado=data?[...(data.asignado||[])]:[];
+            db[e.name].asignadoManual=data?[...(data.asignadoManual||[])]:[];
+            db[e.name].startingAccVP=data?(data.startingAccVP||0):0;
+            db[e.name].startingAccFF=data?(data.startingAccFF||0):0;
+            db[e.name].qTotal=data?(data.qTotal||0):0;
+            db[e.name].qV=data?(data.qV||0):0;
+            db[e.name].qF=data?(data.qF||0):0;
         });
-        updateView();
+    } else {
+        manualHolidays=[];
+        isMonthValidated=false;
+        let prevDate=new Date(currentDate.getFullYear(),currentDate.getMonth()-1,1);
+        const prevKey=getMonthKey(prevDate);
+        const prevSaved=monthDataStore[prevKey];
+        employeesData.forEach(e => {
+            db[e.name].noDisp=[];db[e.name].prefs=[];db[e.name].asignado=[];db[e.name].asignadoManual=[];
+            if(prevSaved && prevSaved.isValidated) {
+                let workedFF=0,workedVP=0;
+                if(prevSaved.employees[e.name] && prevSaved.employees[e.name].asignado) {
+                    prevSaved.employees[e.name].asignado.forEach(d => {
+                        if(isFFContext(d,prevSaved.holidays||[],prevDate.getFullYear(),prevDate.getMonth())) workedFF++;
+                        else if(isVPContext(d,prevSaved.holidays||[],prevDate.getFullYear(),prevDate.getMonth())) workedVP++;
+                    });
+                    db[e.name].startingAccVP=(prevSaved.employees[e.name].startingAccVP||0)+workedVP;
+                    db[e.name].startingAccFF=(prevSaved.employees[e.name].startingAccFF||0)+workedFF;
+                }
+            } else if(prevSaved && prevSaved.employees[e.name]) {
+                db[e.name].startingAccVP=prevSaved.employees[e.name].startingAccVP||0;
+                db[e.name].startingAccFF=prevSaved.employees[e.name].startingAccFF||0;
+            } else {
+                db[e.name].startingAccVP=0;
+                db[e.name].startingAccFF=0;
+            }
+        });
+    }
+    lastManualAction={name:null,day:null};
+}
+
+function changeMonth(o) {
+    saveMonthState();
+    currentDate.setMonth(currentDate.getMonth()+o);
+    loadMonthState();
+    updateView();
+}
+
+// ============================================================
+// 4. VALIDACIÓN
+// ============================================================
+function validarCuadrante(mode) {
+    if(isMonthValidated) return alert("Este mes ya está validado y cerrado.");
+    
+    let msg = "Vas a validar el Cuadrante " + (mode === 'manual' ? "MANUAL" : "AUTOMÁTICO") + ".\n\nEste será el oficial y el otro será descartado. Los acumulados Visperas y Festivos pasarán al mes siguiente. ¿Continuar?";
+    if(!confirm(msg)) return;
+    
+    if(mode === 'manual') {
+        employeesData.forEach(e => { db[e.name].asignado=[...(db[e.name].asignadoManual||[])]; });
     }
 
-    function isFF(d) {
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
-        return manualHolidays.includes(d) || [0,6].includes(date.getDay());
-    }
+    updatePatternMemory();
 
-    function isVP(d) {
-        if(isFF(d)) return false; 
-        const dateNext = new Date(currentDate.getFullYear(), currentDate.getMonth(), d+1);
-        return manualHolidays.includes(d+1) || [0,6].includes(dateNext.getDay());
+    isMonthValidated=true;
+    saveMonthState();
+    
+    let nextDate=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,1);
+    const nextKey=getMonthKey(nextDate);
+    if(monthDataStore[nextKey]) {
+        employeesData.forEach(e => {
+            let mFF=0,mVP=0;
+            db[e.name].asignado.forEach(d => { if(isFF(d)) mFF++; else if(isVP(d)) mVP++; });
+            monthDataStore[nextKey].employees[e.name].startingAccVP=(db[e.name].startingAccVP||0)+mVP;
+            monthDataStore[nextKey].employees[e.name].startingAccFF=(db[e.name].startingAccFF||0)+mFF;
+        });
     }
-
-    function getMinDistance(name, day) {
-        if(db[name].asignado.length === 0) return 999;
-        let dists = db[name].asignado.map(d => Math.abs(d - day));
-        return Math.min(...dists);
+    
+    // Ocultar el panel descartado
+    if(mode === 'auto') {
+        document.getElementById('pdf-page-manual').style.display = 'none';
+    } else {
+        document.getElementById('pdf-page-2').style.display = 'none';
     }
+    
+    renderOutput();
+    addLog(`🔒 Cuadrante ${mode.toUpperCase()} VALIDADO. Memoria actualizada.`);
+}
 
-    function getLegalDaysLeft(name, days, minRest) {
-        let count = 0;
-        for(let d=1; d<=days; d++) {
-            if(countInDay(d) < 2 && !db[name].asignado.includes(d) && !db[name].noDisp.includes(d)) {
-                if(checkLegality(name, d, minRest)) count++;
+function updatePatternMemory() {
+    const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
+    employeesData.forEach(e => {
+        if(!patternMemory[e.name]) patternMemory[e.name]={totalFF:0,totalVP:0,totalN:0,months:0};
+        let ff=0,vp=0,n=0;
+        (db[e.name].asignado||[]).forEach(d => {
+            if(isFF(d)) ff++;
+            else if(isVP(d)) vp++;
+            else n++;
+        });
+        patternMemory[e.name].totalFF+=ff;
+        patternMemory[e.name].totalVP+=vp;
+        patternMemory[e.name].totalN+=n;
+        patternMemory[e.name].months+=1;
+    });
+    renderMemoryTab();
+}
+
+// ============================================================
+// 5. LÓGICA DE DÍAS Y FESTIVOS
+// ============================================================
+function isFFContext(d,holidays,year,month) {
+    d=parseInt(d);const date=new Date(year,month,d);
+    return holidays.includes(d)||[0,6].includes(date.getDay());
+}
+function isVPContext(d,holidays,year,month) {
+    if(isFFContext(d,holidays,year,month)) return false;
+    const dateNext=new Date(year,month,d+1);
+    return holidays.includes(d+1)||[0,6].includes(dateNext.getDay());
+}
+function isFF(d){return isFFContext(d,manualHolidays,currentDate.getFullYear(),currentDate.getMonth());}
+function isVP(d){return isVPContext(d,manualHolidays,currentDate.getFullYear(),currentDate.getMonth());}
+
+function toggleFestivo(d) {
+    if(isMonthValidated) return;
+    
+    // 1. FOTO DEL SCROLL
+    const currentScrollY = window.scrollY;
+    const wrapper = document.querySelector('.matrix-wrapper');
+    const currentScrollX = wrapper ? wrapper.scrollLeft : 0;
+
+    // 2. Lógica del festivo
+    d = parseInt(d);
+    const i = manualHolidays.indexOf(d);
+    if(i > -1) manualHolidays.splice(i, 1); 
+    else manualHolidays.push(d);
+    
+    saveMonthState();
+    
+    // 3. Redibujamos la pantalla
+    renderOutput();
+
+    // 4. RESTAURAMOS EL SCROLL
+    window.scrollTo(0, currentScrollY);
+    const newWrapper = document.querySelector('.matrix-wrapper');
+    if (newWrapper) newWrapper.scrollLeft = currentScrollX;
+}
+
+function getMinDistance(name,day) {
+    if(!db[name]||!db[name].asignado||db[name].asignado.length===0) return 999;
+    return Math.min(...db[name].asignado.map(d=>Math.abs(d-day)));
+}
+
+function countInDay(d){return employeesData.filter(e=>db[e.name].asignado.includes(d)).length;}
+
+// ============================================================
+// 6. MODO MANUAL MEJORADO
+// ============================================================
+function toggleManualMode() {
+    isManualMode=!isManualMode;
+    const btn=document.getElementById('btn-manual-mode');
+    const secManual=document.getElementById('pdf-page-manual');
+    
+    if(isManualMode){
+        btn.classList.add('active');
+        btn.innerText = "🛠️ Ocultar Manual";
+        secManual.classList.remove('hidden');
+        syncManualFromAuto(); // Clonamos la matriz al habilitar
+    } else {
+        btn.classList.remove('active');
+        btn.innerText = "🛠️ Activar Manual (Clonar)";
+        secManual.classList.add('hidden');
+    }
+    renderOutput();
+}
+
+function syncManualFromAuto(){
+    employeesData.forEach(e=>{db[e.name].asignadoManual=[...(db[e.name].asignado||[])];});
+    saveMonthState();renderOutput();
+}
+
+function toggleFreeManualAsign(n, d) {
+    if(isMonthValidated) return;
+    
+    // 1. FOTO DEL SCROLL: Guardamos dónde estás mirando (Vertical y Horizontal)
+    const currentScrollY = window.scrollY;
+    const wrapper = document.querySelector('.matrix-wrapper');
+    const currentScrollX = wrapper ? wrapper.scrollLeft : 0;
+
+    // 2. Lógica de asignación
+    const isA = db[n].asignadoManual.includes(d);
+    if(!isA) db[n].asignadoManual.push(d); 
+    else db[n].asignadoManual = db[n].asignadoManual.filter(x => x !== d);
+    
+    saveMonthState();
+    
+    // 3. Redibujamos la pantalla
+    renderOutput(); 
+
+    // 4. RESTAURAMOS EL SCROLL: Te devolvemos exactamente a donde estabas
+    window.scrollTo(0, currentScrollY);
+    const newWrapper = document.querySelector('.matrix-wrapper');
+    if (newWrapper) newWrapper.scrollLeft = currentScrollX;
+}
+
+
+function autoCompleteManual() {
+    if (isMonthValidated) return;
+    
+    addLog(`<span class="log-tag tag-pro" style="background:var(--primary)">MANUAL</span> Autocompletando IA + Rescate...`);
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    let assignedSomething = false;
+
+    employeesData.forEach(e => {
+        db[e.name].prefs.forEach(pDay => {
+            let numAsignados = employeesData.filter(emp => db[e.name].asignadoManual.includes(pDay)).length;
+            if (numAsignados < 2 && !db[e.name].asignadoManual.includes(pDay) && checkLegality(e.name, pDay, db[e.name].asignadoManual, true, true)) {
+                db[e.name].asignadoManual.push(pDay);
+            }
+        });
+    });
+
+    let keepGoing = true;
+    while (keepGoing) {
+        keepGoing = false;
+        let bestDay = -1, minCands = 999, bestCands = [];
+
+        for (let d = 1; d <= days; d++) {
+            let count = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).length;
+            if (count < 2) {
+                let cands = employeesData.filter(e => !db[e.name].asignadoManual.includes(d) && checkLegality(e.name, d, db[e.name].asignadoManual, true, true));
+                if (cands.length > 0 && cands.length < minCands) {
+                    minCands = cands.length; bestDay = d; bestCands = cands;
+                }
             }
         }
-        return count;
-    }
 
-    function showError(msg, cell) {
-        const el = document.getElementById('validationMessage');
-        el.innerText = "🚫 " + msg; el.style.display = 'block';
-        if(cell) { cell.classList.add('cell-invalid'); setTimeout(() => cell.classList.remove('cell-invalid'), 600); }
-        setTimeout(() => el.style.display = 'none', 3000);
-    }
+        if (bestDay !== -1) {
+            bestCands.sort((a, b) => {
+                if (isFF(bestDay)) {
+                    let ffA = db[a.name].asignadoManual.filter(x => isFF(x)).length + (db[a.name].startingAccFF || 0);
+                    let ffB = db[b.name].asignadoManual.filter(x => isFF(x)).length + (db[b.name].startingAccFF || 0);
+                    if (ffA !== ffB) return ffA - ffB;
+                } else if (isVP(bestDay)) {
+                    let vpA = db[a.name].asignadoManual.filter(x => isVP(x)).length + (db[a.name].startingAccVP || 0);
+                    let vpB = db[b.name].asignadoManual.filter(x => isVP(x)).length + (db[b.name].startingAccVP || 0);
+                    if (vpA !== vpB) return vpA - vpB;
+                }
+                let cA = db[a.name].asignadoManual.length, cB = db[b.name].asignadoManual.length;
+                if (cA !== cB) return cA - cB; 
+                return db[b.name].noDisp.length - db[a.name].noDisp.length;
+            });
 
-    // --- MODO MANUAL LIBRE ---
-    function toggleManualMode() {
-        isManualMode = !isManualMode;
-        const btn = document.getElementById('btn-manual-mode');
-        const section = document.getElementById('pdf-page-manual');
-        
-        if (isManualMode) {
-            btn.classList.add('active');
-            section.classList.remove('hidden');
-            // Check if manual is completely empty. If so, clone automatically.
-            let isEmpty = true;
-            for(let e of employeesData) { if(db[e.name].asignadoManual.length > 0) isEmpty = false; }
-            if (isEmpty) syncManualFromAuto();
-        } else {
-            btn.classList.remove('active');
-            section.classList.add('hidden');
+            db[bestCands[0].name].asignadoManual.push(bestDay);
+            assignedSomething = true; keepGoing = true; 
         }
-        renderOutput();
     }
 
-    function syncManualFromAuto() {
-        employeesData.forEach(e => {
-            db[e.name].asignadoManual = [...db[e.name].asignado];
+    // --- AQUÍ ENTRA EL ESCUADRÓN DE RESCATE ---
+    repairGaps(days, true);
+
+    balanceQuantities(true);
+    orToolsOptimize(days, true);
+
+    saveMonthState();
+    renderOutput();
+    addLog(`<span class="log-tag tag-pro" style="background:var(--success)">MANUAL</span> Autocompletado finalizado.`);
+}
+
+
+
+
+
+function addLog(t){
+    const log=document.getElementById('auditLog');
+    if(log.innerText.includes("Motor PRO listo")) log.innerHTML="";
+    const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    log.innerHTML=`<div class="log-entry"><span>[${time}]</span> ${t}</div>`+log.innerHTML;
+}
+
+// ============================================================
+// 7. LEGALIDAD
+// ============================================================
+function checkLegality(name, day, tempDays = null, checkLimit = false, isManualCheck = false) {
+    // Si tempDays es un array válido lo usamos, si no, elegimos la matriz correcta según el contexto
+    const assigned = Array.isArray(tempDays) ? tempDays : (isManualCheck ? db[name].asignadoManual : db[name].asignado);
+    
+    if (assigned.includes(day)) return false;
+    if (db[name].noDisp.includes(day)) return false;
+
+    if (checkLimit) {
+        if (db[name].qTotal > 0 && assigned.length >= db[name].qTotal) return false;
+        if (db[name].qF > 0 && isFF(day) && assigned.filter(x => isFF(x)).length >= db[name].qF) return false;
+        if (db[name].qV > 0 && isVP(day) && assigned.filter(x => isVP(x)).length >= db[name].qV) return false;
+    }
+
+    if (assigned.includes(day - 1) || assigned.includes(day + 1)) return false;
+    if (assigned.includes(day - 2) || assigned.includes(day + 2)) return false;
+
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const dow = date.getDay();
+    if (dow === 1 && assigned.includes(day - 2)) return false;
+    if (dow === 6 && assigned.includes(day + 2)) return false;
+
+    const partners = { "Oscar": "Gema", "Gema": "Oscar" };
+    if (partners[name]) {
+        const p = partners[name];
+        if (db[p]) {
+            // AQUÍ LA CLAVE: Usamos isManualCheck para no equivocarnos NUNCA de tabla
+            const pAssigned = isManualCheck ? db[p].asignadoManual : db[p].asignado;
+            if (pAssigned.includes(day)) return false;
+            if (pAssigned.includes(day - 1) || pAssigned.includes(day + 1)) return false;
+        }
+    }
+    return true;
+}
+
+
+
+// ============================================================
+// 8. SCORING MULTIOBJETIVO
+// ============================================================
+function scoreVector(empName, day, pass) {
+    const e = db[empName];
+    const mem = patternMemory[empName] || {totalFF:0, totalVP:0, totalN:0, months:1};
+    const months = Math.max(mem.months, 1);
+
+    const curFF = e.asignado.filter(d=>isFF(d)).length;
+    const curVP = e.asignado.filter(d=>isVP(d)).length;
+    const totalFF = (e.startingAccFF||0) + curFF;
+    const totalVP = (e.startingAccVP||0) + curVP;
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
+    const targetAvg = Math.ceil((days*2)/employeesData.length);
+    const target = e.qTotal>0 ? e.qTotal : targetAvg;
+    const ratio = e.asignado.length / target;
+
+    const equity = 1 - Math.min(ratio, 1.5);
+    const dist = getMinDistance(empName, day);
+    const spacing = dist===999 ? 1 : Math.min(dist,15)/15;
+
+    const avgFFperMonth = mem.totalFF / months;
+    const fairnessFF = isFF(day) ? Math.max(0, 1 - (curFF * 0.6) - (totalFF / Math.max(avgFFperMonth * 1.5, 1)) * 0.2) : 0.5;
+
+    const avgVPperMonth = mem.totalVP / months;
+    const fairnessVP = isVP(day) ? Math.max(0, 1 - (curVP * 0.6) - (totalVP / Math.max(avgVPperMonth * 1.5, 1)) * 0.2) : 0.5;
+
+    const pref = e.prefs.includes(day) ? 1 : 0;
+    const alts = employeesData.filter(o =>
+        o.name!==empName && !db[o.name].noDisp.includes(day) &&
+        !db[o.name].asignado.includes(day) && checkLegality(o.name, day, 1)
+    ).length;
+    const bottleneck = Math.max(0, 1 - alts/employeesData.length);
+
+    const memoryPenalty = isFF(day)
+        ? Math.max(0, 1 - (mem.totalFF/months)/3)
+        : isVP(day)
+            ? Math.max(0, 1 - (mem.totalVP/months)/3)
+            : 0.5;
+
+    return {equity, spacing, fairnessFF, fairnessVP, pref, bottleneck, memoryPenalty};
+}
+
+function compositeScore(vec, pass) {
+    const W = {
+        equity: pass.type==='FILL_ALL' ? 30 : 20,
+        spacing: 25,
+        fairnessFF: pass.type==='TARGET_FF'||pass.type==='FILL_FF' ? 40 : 10,
+        fairnessVP: pass.type==='TARGET_VP'||pass.type==='FILL_VP' ? 40 : 10,
+        pref: 50,
+        bottleneck: 15,
+        memoryPenalty: 20
+    };
+    const total = Object.values(W).reduce((a,b)=>a+b,0);
+    let s = 0;
+    for(const k of Object.keys(W)) s += (vec[k]||0)*W[k];
+    return s/total; 
+}
+
+function computeParetoFront(candidates) {
+    const n = candidates.length;
+    const dominated = new Array(n).fill(false);
+    for(let i=0;i<n;i++) {
+        for(let j=0;j<n;j++) {
+            if(i===j||dominated[i]) continue;
+            const A=candidates[i].vec, B=candidates[j].vec;
+            const keys=Object.keys(A);
+            const Adom = keys.every(k=>A[k]>=B[k]) && keys.some(k=>A[k]>B[k]);
+            if(Adom) dominated[j]=true;
+        }
+    }
+    return candidates.map((c,i)=>({...c, pareto:!dominated[i]}));
+}
+
+const BEAM_WIDTH = 3;
+
+function beamEvaluateDay(day, pass) {
+    const candidates = employeesData
+        .filter(e => {
+            if(db[e.name].asignado.includes(day)||db[e.name].noDisp.includes(day)) return false;
+            if(pass.type==='P'&&!db[e.name].prefs.includes(day)) return false;
+            const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
+            const targetAvg=Math.ceil((days*2)/employeesData.length);
+            const target=db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
+            if(pass.limitTarget&&pass.type!=='P'&&db[e.name].asignado.length>=target) return false;
+            if(pass.type==='TARGET_FF'&&(db[e.name].qF===0||db[e.name].asignado.filter(d=>isFF(d)).length>=db[e.name].qF)) return false;
+            if(pass.type==='TARGET_VP'&&(db[e.name].qV===0||db[e.name].asignado.filter(d=>isVP(d)).length>=db[e.name].qV)) return false;
+            return checkLegality(e.name, day, pass.minRest);
+        })
+        .map(e => {
+            const vec = scoreVector(e.name, day, pass);
+            return {name:e.name, vec, score:compositeScore(vec, pass)};
         });
-        renderOutput();
-    }
 
-    function toggleFreeManualAsign(n, d) {
-        if (db[n].noDisp.includes(d)) {
-            if(!confirm(`${n} marcó Indisponibilidad (X) el día ${d}. ¿Forzar guardia saltando la regla?`)) return;
-        }
-        const isAssigned = db[n].asignadoManual.includes(d);
-        if (!isAssigned) {
-            db[n].asignadoManual.push(d);
-        } else {
-            db[n].asignadoManual = db[n].asignadoManual.filter(x => x !== d);
-        }
-        renderOutput();
-    }
+    const withPareto = computeParetoFront(candidates);
+    withPareto.sort((a,b) => {
+        if(a.pareto && !b.pareto) return -1;
+        if(!a.pareto && b.pareto) return 1;
+        return b.score - a.score;
+    });
 
-    // --- ASIGNACIÓN TABLA ESTRICTA ---
-    function toggleManualAsign(n, d, cell) {
-        if (db[n].noDisp.includes(d)) return;
-        const isAssigned = db[n].asignado.includes(d);
-        
-        if (!isAssigned) {
-            if (n === "Oscar" || n === "Gema") {
-                const partner = n === "Oscar" ? "Gema" : "Oscar";
-                if(db[partner].asignado.includes(d)) return showError("Oscar y Gema no pueden trabajar juntos", cell);
-                if(db[partner].asignado.includes(d-1) || db[partner].asignado.includes(d+1)) return showError("Oscar y Gema no pueden enlazar días consecutivos", cell);
+    return withPareto.slice(0, BEAM_WIDTH);
+}
+
+// ============================================================
+// 11. OR-TOOLS SOLVER (Mejorado contra estancamiento)
+// ============================================================
+function orToolsOptimize(days, isManual = false) {
+    const target = isManual ? 'asignadoManual' : 'asignado';
+
+    const typeSwap = (checkTypeFn, typeName, accProp) => {
+        let swapped = true; let limit = 0;
+        while(swapped && limit++ < 500) {
+            swapped = false;
+            let stats = employeesData.map(e => ({
+                name: e.name,
+                totalSpec: db[e.name][target].filter(d => checkTypeFn(d)).length + (db[e.name][accProp]||0),
+                currentSpec: db[e.name][target].filter(d => checkTypeFn(d)).length
+            })).sort((a,b) => b.totalSpec - a.totalSpec);
+
+            for(let i=0; i<stats.length; i++) {
+                let over = stats[i]; if(over.currentSpec === 0) continue;
+
+                for(let j=stats.length-1; j>i; j--) {
+                    let under = stats[j];
+                    if(over.totalSpec > under.totalSpec + 1) {
+                        let oDays = db[over.name][target].filter(d => checkTypeFn(d));
+                        let uDays = db[under.name][target].filter(d => !checkTypeFn(d));
+
+                        for(let dO of oDays) {
+                            for(let dU of uDays) {
+                                let tO = db[over.name][target].filter(x => x !== dO);
+                                let tU = db[under.name][target].filter(x => x !== dU);
+
+                                // PASAMOS EL CHIVATO isManual
+                                if(checkLegality(over.name, dU, tO, false, isManual) && checkLegality(under.name, dO, tU, false, isManual)) {
+                                    db[over.name][target] = [...tO, dU];
+                                    db[under.name][target] = [...tU, dO];
+                                    swapped = true; break;
+                                }
+                            }
+                            if(swapped) break;
+                        }
+                    }
+                    if(swapped) break;
+                }
+                if(swapped) break;
             }
-            if(db[n].asignado.includes(d-1) || db[n].asignado.includes(d+1)) return showError("Descanso de 24h obligatorio incumplido", cell);
-            
-            const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
-            if(date.getDay() === 1 && db[n].asignado.includes(d - 2)) return showError("Lunes bloqueado por guardia el Sábado", cell);
-            if(date.getDay() === 6 && db[n].asignado.includes(d + 2)) return showError("Sábado bloqueado por guardia el Lunes", cell);
-
-            db[n].asignado.push(d);
-            lastManualAction = { name: n, day: d };
-        } else {
-            db[n].asignado = db[n].asignado.filter(x => x !== d);
-            if(lastManualAction.name === n && lastManualAction.day === d) lastManualAction = { name: null, day: null };
         }
-        renderOutput();
+    };
+
+    typeSwap(isFF, "Festivo", "startingAccFF");
+    typeSwap(isVP, "Víspera", "startingAccVP");
+}
+
+// ============================================================
+// . balance Quantities 
+// ============================================================
+
+function balanceQuantities(isManual = false) {
+    const target = isManual ? 'asignadoManual' : 'asignado';
+    let moved = true;
+    let iter = 0;
+
+    while (moved && iter++ < 200) {
+        moved = false;
+        let stats = employeesData.map(e => ({ name: e.name, n: db[e.name][target].length }))
+            .sort((a, b) => b.n - a.n);
+
+        let over = stats[0];
+        let under = stats[stats.length - 1];
+
+        if (over.n > under.n + 1) {
+            let daysToGive = [...db[over.name][target]].sort((a,b) => {
+                let weightA = isFF(a) ? 2 : (isVP(a) ? 1 : 0);
+                let weightB = isFF(b) ? 2 : (isVP(b) ? 1 : 0);
+                return weightA - weightB;
+            });
+
+            for (let d of daysToGive) {
+                // PASAMOS EL CHIVATO isManual AL FINAL
+                if (!db[under.name][target].includes(d) && checkLegality(under.name, d, db[under.name][target], false, isManual)) {
+                    db[over.name][target] = db[over.name][target].filter(x => x !== d);
+                    db[under.name][target].push(d);
+                    moved = true;
+                    break;
+                }
+            }
+        }
     }
+}
 
-    function addLog(t) { 
-        const log = document.getElementById('auditLog'); 
-        if(log.innerText.includes("Esperando") || log.innerText.includes("listo para ser")) log.innerHTML = ""; 
-        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-        log.innerHTML = `<div class="log-entry"><span>[${time}]</span> ${t}</div>` + log.innerHTML; 
-    }
 
-    // --- MOTOR DE GENERACIÓN INTELIGENTE ---
-    function generate() {
-        const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        document.getElementById('auditLog').innerHTML = "";
-        addLog("🚀 Iniciando Motor de Equidad Estricta y Espaciado Magnético...");
 
-        const targetAvg = Math.ceil((days * 2) / employeesData.length);
 
-        const passes = [
-            { type: 'P', minRest: 2, label: "Peticiones (48h)" },
-            { type: 'P', minRest: 1, label: "Peticiones (24h)" },
-            { type: 'ALL', minRest: 2, label: "Equidad (48h)" },
-            { type: 'ALL', minRest: 1, label: "Relleno Crítico (24h)" }
-        ];
+function repairGaps(days, isManual = false) {
+    const target = isManual ? 'asignadoManual' : 'asignado';
+    let madeChange = true;
+    let iter = 0;
 
-        for(let pass of passes) {
-            let madeChanges = true;
+    // Repetimos hasta que no haya más huecos que podamos salvar (máximo 150 intentos)
+    while (madeChange && iter++ < 150) {
+        madeChange = false;
+        
+        for (let d = 1; d <= days; d++) {
+            let workers = employeesData.filter(e => db[e.name][target].includes(d));
             
-            while(madeChanges) {
-                madeChanges = false;
+            // ¡Alerta! Hemos encontrado un día con un hueco
+            if (workers.length < 2) {
                 
-                let activePool = employeesData.filter(e => {
-                    const target = db[e.name].qTotal > 0 ? db[e.name].qTotal : targetAvg;
-                    if (db[e.name].asignado.length >= target + 1) return false; 
-                    return true;
-                });
-
-                if(activePool.length === 0) activePool = [...employeesData];
-
-                activePool.sort((a,b) => {
-                    const countA = db[a.name].asignado.length;
-                    const countB = db[b.name].asignado.length;
+                for (let e of employeesData) {
+                    if (workers.some(w => w.name === e.name)) continue;
+                    if (db[e.name].noDisp.includes(d)) continue;
                     
-                    const targetA = db[a.name].qTotal > 0 ? db[a.name].qTotal : targetAvg;
-                    const targetB = db[b.name].qTotal > 0 ? db[b.name].qTotal : targetAvg;
+                    // Comprobamos si su pareja le bloquea. Si es así, pasamos a otro.
+                    let partnerBlocked = false;
+                    const partners = { "Oscar": "Gema", "Gema": "Oscar" };
+                    if (partners[e.name] && db[partners[e.name]]) {
+                        const pAssigned = db[partners[e.name]][target];
+                        if (pAssigned.includes(d) || pAssigned.includes(d - 1) || pAssigned.includes(d + 1)) {
+                            partnerBlocked = true;
+                        }
+                    }
+                    if (partnerBlocked) continue;
+
+                    // Miramos qué turnos le impiden trabajar este día 17 (regla 48h)
+                    let conflicts = db[e.name][target].filter(shift => Math.abs(shift - d) <= 2);
+                    let tempShifts = db[e.name][target].filter(shift => Math.abs(shift - d) > 2);
                     
-                    const neededA = Math.max(0, targetA - countA);
-                    const neededB = Math.max(0, targetB - countB);
-                    
-                    const legalA = getLegalDaysLeft(a.name, days, pass.minRest);
-                    const legalB = getLegalDaysLeft(b.name, days, pass.minRest);
-
-                    const riskA = (neededA > 0 && legalA <= neededA + 2) ? (neededA - legalA) : -99;
-                    const riskB = (neededB > 0 && legalB <= neededB + 2) ? (neededB - legalB) : -99;
-                    if (riskA !== riskB) return riskB - riskA; 
-
-                    if (countA !== countB) return countA - countB;
-
-                    return legalA - legalB; 
-                });
-
-                for(let e of activePool) {
-                    let bestDay = -1;
-                    let bestScore = -9999;
-                    
-                    for(let d=1; d<=days; d++) {
-                        if(countInDay(d) >= 2) continue;
-                        if(db[e.name].asignado.includes(d) || db[e.name].noDisp.includes(d)) continue;
-                        if(pass.type === 'P' && !db[e.name].prefs.includes(d)) continue;
-                        if(!checkLegality(e.name, d, pass.minRest)) continue;
+                    // Si SOLO hay 1 turno bloqueándole el camino...
+                    if (conflicts.length === 1) {
+                        let conflictDay = conflicts[0];
                         
-                        let score = 0;
-                        if(db[e.name].prefs.includes(d)) score += 1000;
-                        
-                        score -= countInDay(d) * 500; 
-
-                        let dist = getMinDistance(e.name, d);
-                        if(dist !== 999) score += (dist * 15); 
-                        
-                        let otherAvailable = 0;
-                        for(let o of employeesData) {
-                            if(o.name !== e.name && !db[o.name].noDisp.includes(d) && !db[o.name].asignado.includes(d) && checkLegality(o.name, d, 1)) {
-                                otherAvailable++;
+                        // ¿Sería legal si le quitamos ese turno conflictivo?
+                        if (checkLegality(e.name, d, tempShifts, false, isManual)) {
+                            
+                            // Buscamos a un "Salvador" que se haga cargo de ese turno
+                            let rescuer = employeesData.find(other => 
+                                other.name !== e.name &&
+                                !db[other.name][target].includes(conflictDay) &&
+                                checkLegality(other.name, conflictDay, db[other.name][target], false, isManual)
+                            );
+                            
+                            if (rescuer) {
+                                // ¡Intercambio salvador realizado!
+                                db[e.name][target] = tempShifts;
+                                db[e.name][target].push(d); // Cubre el hueco
+                                db[rescuer.name][target].push(conflictDay); // Se lleva el marrón
+                                madeChange = true;
+                                break; // Rompemos el for para reevaluar todo el tablero
                             }
                         }
-                        if(otherAvailable === 0) score += 2000; 
-                        else score += otherAvailable * 20;
-
-                        if(score > bestScore) { bestScore = score; bestDay = d; }
-                    }
-
-                    if(bestDay !== -1) {
-                        db[e.name].asignado.push(bestDay);
-                        let tag = isFF(bestDay) ? '<span class="log-tag tag-ff">F/F</span>' : (isVP(bestDay) ? '<span class="log-tag tag-vp">V/P</span>' : '');
-                        let distLog = getMinDistance(e.name, bestDay) === 999 ? '1ª Guardia' : `Espaciado: ${getMinDistance(e.name, bestDay)}d`;
-                        addLog(`✔️ Día ${bestDay}: <b>${e.name}</b> ${tag} (Turnos: ${db[e.name].asignado.length} | ${distLog})`);
-                        madeChanges = true;
-                        break; 
                     }
                 }
             }
         }
-        if (isManualMode) syncManualFromAuto();
-        addLog("✅ Cuadrante completado.");
-        renderOutput();
+    }
+}
+
+
+
+
+
+
+// ============================================================
+// 12. MOTOR PRINCIPAL PRO 
+// ============================================================
+async function generatePro() {
+    addLog(`<span class="log-tag tag-pro">MOTOR</span> Iniciando generación IA + Rescate...`);
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+
+    employeesData.forEach(e => db[e.name].asignado = []);
+
+    employeesData.forEach(e => {
+        db[e.name].prefs.forEach(pDay => {
+            let numAsignados = employeesData.filter(emp => db[emp.name].asignado.includes(pDay)).length;
+            if (numAsignados < 2 && !db[e.name].asignado.includes(pDay) && checkLegality(e.name, pDay, null, true, false)) {
+                db[e.name].asignado.push(pDay);
+            }
+        });
+    });
+
+    let keepGoing = true;
+    while (keepGoing) {
+        keepGoing = false;
+        let bestDay = -1, minCands = 999, bestCands = [];
+
+        for (let d = 1; d <= days; d++) {
+            let count = employeesData.filter(e => db[e.name].asignado.includes(d)).length;
+            if (count < 2) {
+                let cands = employeesData.filter(e => !db[e.name].asignado.includes(d) && checkLegality(e.name, d, null, true, false));
+                if (cands.length > 0 && cands.length < minCands) {
+                    minCands = cands.length; bestDay = d; bestCands = cands;
+                }
+            }
+        }
+
+        if (bestDay !== -1) {
+            bestCands.sort((a, b) => {
+                if (isFF(bestDay)) {
+                    let ffA = db[a.name].asignado.filter(x => isFF(x)).length + (db[a.name].startingAccFF || 0);
+                    let ffB = db[b.name].asignado.filter(x => isFF(x)).length + (db[b.name].startingAccFF || 0);
+                    if (ffA !== ffB) return ffA - ffB;
+                } else if (isVP(bestDay)) {
+                    let vpA = db[a.name].asignado.filter(x => isVP(x)).length + (db[a.name].startingAccVP || 0);
+                    let vpB = db[b.name].asignado.filter(x => isVP(x)).length + (db[b.name].startingAccVP || 0);
+                    if (vpA !== vpB) return vpA - vpB;
+                }
+                let cA = db[a.name].asignado.length, cB = db[b.name].asignado.length;
+                if (cA !== cB) return cA - cB; 
+                return db[b.name].noDisp.length - db[a.name].noDisp.length;
+            });
+
+            db[bestCands[0].name].asignado.push(bestDay);
+            keepGoing = true; 
+        }
     }
 
-    function checkLegality(name, day, minRest) {
-        const myDays = db[name].asignado;
-        for(let i = -minRest; i <= minRest; i++) {
-            if(i === 0) continue;
-            if(myDays.includes(day + i)) return false;
+    // --- AQUÍ ENTRA EL ESCUADRÓN DE RESCATE ---
+    repairGaps(days, false);
+
+    balanceQuantities(false);
+    orToolsOptimize(days, false);
+
+    if (typeof jsConfetti !== 'undefined') jsConfetti.addConfetti();
+    renderOutput();
+    addLog(`<span class="log-tag tag-pro">FIN</span> Cuadrante generado.`);
+}
+
+
+function computeGlobalScore() {
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
+    const targetAvg = Math.ceil((days*2)/employeesData.length);
+    let score = 0;
+    let covered = 0;
+    for(let d=1;d<=days;d++) { const c=countInDay(d); if(c>=2) covered++; }
+    score += covered*10;
+    employeesData.forEach(e => {
+        const target = db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
+        const diff = Math.abs(db[e.name].asignado.length - target);
+        score -= diff*2;
+    });
+    return score;
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function setProgress(pct, phase, show=true){
+    const el=document.getElementById('algoProgress');
+    const fill=document.getElementById('progressFill');
+    const phaseEl=document.getElementById('progressPhase');
+    el.classList.toggle('visible', show&&pct>0&&pct<100);
+    fill.style.width=pct+'%';
+    phaseEl.textContent=phase;
+}
+
+// ============================================================
+// 13. RESOLUCIÓN DE CONFLICTOS
+// ============================================================
+function resolveConflicts(){
+    const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
+    const targetAvg=Math.ceil((days*2)/employeesData.length);
+    for(let d=1;d<=days;d++){
+        let assigned=employeesData.filter(e=>db[e.name].asignado.includes(d)).map(e=>e.name);
+        while(assigned.length>2){
+            let mandatory=(lastManualAction.day===d)?lastManualAction.name:null;
+            let removable=assigned.filter(n=>n!==mandatory);
+            if(removable.length===0) removable=[...assigned];
+            removable.sort((a,b)=>{
+                if(isFF(d)){
+                    return ((db[b].startingAccFF||0)+db[b].asignado.filter(x=>isFF(x)).length)-((db[a].startingAccFF||0)+db[a].asignado.filter(x=>isFF(x)).length);
+                }
+                if(isVP(d)){
+                    return ((db[b].startingAccVP||0)+db[b].asignado.filter(x=>isVP(x)).length)-((db[a].startingAccVP||0)+db[a].asignado.filter(x=>isVP(x)).length);
+                }
+                const tA=db[a].qTotal>0?db[a].qTotal:targetAvg;
+                const tB=db[b].qTotal>0?db[b].qTotal:targetAvg;
+                return (db[b].asignado.length-tB)-(db[a].asignado.length-tA);
+            });
+            let pToMove=removable[0];
+            db[pToMove].asignado=db[pToMove].asignado.filter(x=>x!==d);
+            assigned=assigned.filter(x=>x!==pToMove);
+            addLog(`⚠️ Retirado <b>${pToMove}</b> del día ${d} por exceso de personal.`);
         }
-        if(name === "Oscar" || name === "Gema") {
-            const partner = name === "Oscar" ? "Gema" : "Oscar";
-            if(db[partner] && (db[partner].asignado.includes(day) || db[partner].asignado.includes(day-1) || db[partner].asignado.includes(day+1))) return false;
-        }
-        const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-        if(date.getDay() === 1 && myDays.includes(day - 2)) return false; 
-        if(date.getDay() === 6 && myDays.includes(day + 2)) return false; 
-        return true;
+    }
+    lastManualAction={name:null,day:null};
+    saveMonthState();
+    if(isManualMode) syncManualFromAuto();
+    renderOutput();
+}
+
+// ============================================================
+// 14. RENDER BEAM SEARCH TAB
+// ============================================================
+function renderBeamTab() {
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
+    const selector = document.getElementById('beamDaySelector');
+    selector.innerHTML = '';
+
+    for(let d=1;d<=days;d++){
+        const hasSnap = beamSnapshots[d]&&beamSnapshots[d].length>0;
+        const btn = document.createElement('button');
+        btn.className = 'btn-header';
+        btn.style.cssText = `background:${isFF(d)?'#fef3c7':isVP(d)?'#fefce8':'white'};font-size:.7rem;padding:4px 8px;`;
+        btn.textContent = d;
+        btn.disabled = !hasSnap;
+        if(!hasSnap) btn.style.opacity='.4';
+        btn.onclick = () => renderBeamDay(d);
+        selector.appendChild(btn);
+    }
+    renderScoreChart();
+}
+
+function renderBeamDay(day) {
+    const snaps = beamSnapshots[day] || [];
+    const container = document.getElementById('beamCandidates');
+    if(snaps.length===0){
+        container.innerHTML='<div style="color:#64748b;font-size:.8rem;grid-column:1/-1;text-align:center;padding:30px;">No hay datos para este día.</div>';
+        return;
+    }
+    const keys = ['equity','spacing','fairnessFF','fairnessVP','pref','bottleneck','memoryPenalty'];
+    const labels = {equity:'Equidad',spacing:'Espaciado',fairnessFF:'Fairness Festivos',fairnessVP:'Fairness Visperas',pref:'Petición',bottleneck:'Anti-cuello',memoryPenalty:'Memoria'};
+    const colors = {equity:'#3b82f6',spacing:'#10b981',fairnessFF:'#f59e0b',fairnessVP:'#f59e0b',pref:'#8b5cf6',bottleneck:'#ef4444',memoryPenalty:'#0d9488'};
+
+    container.innerHTML = snaps.map((c,i) => {
+        const bars = keys.map(k => `
+            <div class="beam-bar-row">
+                <div class="beam-bar-label">${labels[k]}</div>
+                <div class="beam-bar-track"><div class="beam-bar-fill" style="width:${(c.vec[k]*100).toFixed(0)}%;background:${colors[k]};"></div></div>
+                <div style="font-size:.58rem;color:#94a3b8;width:28px;">${(c.vec[k]*100).toFixed(0)}%</div>
+            </div>`).join('');
+        const paretoStr = c.pareto ? '<span class="pareto-badge">★ Pareto Óptimo</span>' : '';
+        const assignedMark = db[c.name]?.asignado.includes(day) ? '<span style="font-size:.6rem;color:#86efac;font-weight:800;">✓ ASIGNADO</span>' : '';
+        return `<div class="beam-card ${i===0?'selected':''}">
+            <div class="beam-rank">BEAM #${i+1} ${assignedMark}</div>
+            <div class="beam-score">${(c.score*100).toFixed(1)}%</div>
+            <div class="beam-sub">${c.name} — Día ${day} ${isFF(day)?'Festivos':isVP(day)?'Visperas':'Normal'}</div>
+            ${paretoStr}
+            <div class="beam-bars">${bars}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderScoreChart() {
+    const canvas = document.getElementById('scoreChart');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.offsetWidth - 40;
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    if(scoreHistory.length < 2) {
+        ctx.fillStyle='#94a3b8';ctx.font='14px sans-serif';ctx.textAlign='center';
+        ctx.fillText('Genera el cuadrante para ver la evolución del score', W/2, H/2);
+        return;
     }
 
-    function countInDay(d) { return employeesData.filter(e => db[e.name].asignado.includes(d)).length; }
-    function countInDayManual(d) { return employeesData.filter(e => db[e.name].asignadoManual.includes(d)).length; }
+    const min=Math.min(...scoreHistory), max=Math.max(...scoreHistory);
+    const range=max-min||1;
+    const pad=30;
+    const xs=scoreHistory.map((_,i)=>pad+(i/(scoreHistory.length-1))*(W-2*pad));
+    const ys=scoreHistory.map(v=>H-pad-((v-min)/range)*(H-2*pad));
 
-    function resolveConflicts() {
-        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,W,H);
+    const grad=ctx.createLinearGradient(0,pad,0,H-pad);
+    grad.addColorStop(0,'rgba(59,130,246,.3)');grad.addColorStop(1,'rgba(59,130,246,0)');
+    ctx.beginPath();ctx.moveTo(xs[0],ys[0]);
+    xs.forEach((x,i)=>{if(i>0) ctx.lineTo(x,ys[i]);});
+    ctx.lineTo(xs[xs.length-1],H-pad);ctx.lineTo(xs[0],H-pad);ctx.closePath();
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.beginPath();ctx.moveTo(xs[0],ys[0]);
+    xs.forEach((x,i)=>{if(i>0) ctx.lineTo(x,ys[i]);});
+    ctx.strokeStyle='#3b82f6';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#475569';ctx.font='10px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Asignaciones',W/2,H-2);
+    ctx.textAlign='right';
+    ctx.fillText(max.toFixed(0),pad-2,pad+4);
+    ctx.fillText(min.toFixed(0),pad-2,H-pad+4);
+}
+
+// ============================================================
+// 15. RENDER MEMORY TAB
+// ============================================================
+function renderMemoryTab() {
+    const heatmap = document.getElementById('memoryHeatmap');
+    if(!heatmap) return;
+
+    const maxFF = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalFF||0),1);
+    const maxVP = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalVP||0),1);
+    const maxN  = Math.max(...employeesData.map(e=>patternMemory[e.name]?.totalN||0),1);
+
+    heatmap.innerHTML = employeesData.map(e => {
+        const m = patternMemory[e.name]||{totalFF:0,totalVP:0,totalN:0,months:0};
+        const hFF = Math.round((m.totalFF/maxFF)*28);
+        const hVP = Math.round((m.totalVP/maxVP)*28);
+        const hN  = Math.round((m.totalN/maxN)*28);
+        return `<div class="memory-emp-box">
+            <div class="memory-emp-name" title="${e.name}">${e.name}</div>
+            <div class="memory-bars">
+                <div class="memory-bar" style="height:${hFF}px;background:#f59e0b;" title="Festivos: ${m.totalFF}"></div>
+                <div class="memory-bar" style="height:${hVP}px;background:#3b82f6;" title="Visperas: ${m.totalVP}"></div>
+                <div class="memory-bar" style="height:${hN}px;background:#94a3b8;" title="Norm: ${m.totalN}"></div>
+            </div>
+            <div style="font-size:.55rem;color:#94a3b8;margin-top:3px;">${m.months} meses</div>
+        </div>`;
+    }).join('');
+
+    const histTable = document.getElementById('historyTable');
+    if(!histTable) return;
+    let th = `<tr><th>Empleado</th><th>Meses</th><th>Festivos totales</th><th>Visperas totales</th><th>Entre semana totales</th><th>Media Festivos/mes</th><th>Media Visperas/mes</th></tr>`;
+    let tb = employeesData.map(e => {
+        const m = patternMemory[e.name]||{totalFF:0,totalVP:0,totalN:0,months:0};
+        const mo = Math.max(m.months,1);
+        const color = db[e.name]?.color||'#ccc';
+        return `<tr>
+            <td style="text-align:left;padding-left:8px;font-weight:700;"><span style="display:inline-block;width:10px;height:10px;background:${color};border-radius:50%;margin-right:5px;"></span>${e.name}</td>
+            <td>${m.months}</td>
+            <td style="color:#f59e0b;font-weight:800;">${m.totalFF}</td>
+            <td style="color:#3b82f6;font-weight:800;">${m.totalVP}</td>
+            <td>${m.totalN}</td>
+            <td>${(m.totalFF/mo).toFixed(1)}</td>
+            <td>${(m.totalVP/mo).toFixed(1)}</td>
+        </tr>`;
+    }).join('');
+    histTable.innerHTML = th+tb;
+}
+
+// ============================================================
+// 16. OR-TOOLS STATS DISPLAY
+// ============================================================
+function renderOrtoolsStats(){
+    const el = document.getElementById('ortoolsStats');
+    if(!ortoolsResult){el.style.display='none';return;}
+    el.style.display='grid';
+    const {iterations,swaps,qualitySwaps,violations}=ortoolsResult;
+    el.innerHTML = [
+        {v:iterations,l:'Iteraciones OR'},
+        {v:swaps,l:'Swaps Cantidad'},
+        {v:qualitySwaps,l:'Swaps Calidad (F/V)'},
+        {v:violations,l:'Violaciones arregladas'}
+    ].map(s=>`<div class="ortools-stat"><div class="ortools-stat-val">${s.v}</div><div class="ortools-stat-label">${s.l}</div></div>`).join('');
+}
+
+// ============================================================
+// 17. ANÁLISIS PARETO GLOBAL
+// ============================================================
+function showParetoAnalysis() {
+    document.getElementById('modalPareto').style.display='flex';
+    const canvas = document.getElementById('paretoChart');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.offsetWidth - 40;
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
+    const targetAvg=Math.ceil((days*2)/employeesData.length);
+
+    const points = employeesData.map(e => {
+        const target=db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
+        const equity=1-Math.abs(db[e.name].asignado.length-target)/Math.max(target,1);
+        const mem=patternMemory[e.name]||{totalFF:0,totalVP:0,months:1};
+        const mo=Math.max(mem.months,1);
+        const curFF=(db[e.name].asignado||[]).filter(d=>isFF(d)).length;
+        const totalFF=(db[e.name].startingAccFF||0)+curFF;
+        const fairness=1-Math.abs(totalFF-(mem.totalFF/mo))/Math.max(mem.totalFF/mo,1);
+        return {name:e.name, x:equity, y:Math.max(0,Math.min(1,fairness)), color:e.color};
+    });
+
+    const dominated=new Array(points.length).fill(false);
+    for(let i=0;i<points.length;i++){
+        for(let j=0;j<points.length;j++){
+            if(i===j||dominated[i]) continue;
+            if(points[j].x>=points[i].x&&points[j].y>=points[i].y&&(points[j].x>points[i].x||points[j].y>points[i].y))
+                dominated[i]=true;
+        }
+    }
+
+    const pad=40;
+    ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,H-pad);ctx.lineTo(W-pad,H-pad);ctx.stroke();
+    ctx.fillStyle='#64748b';ctx.font='10px sans-serif';
+    ctx.textAlign='center';ctx.fillText('Equidad Global',W/2,H-8);
+    ctx.save();ctx.translate(12,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('Fairness Histórico',0,0);ctx.restore();
+
+    const front=points.filter((_,i)=>!dominated[i]).sort((a,b)=>a.x-b.x);
+    if(front.length>1){
+        ctx.beginPath();
+        front.forEach((p,i)=>{
+            const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad);
+            if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        });
+        ctx.strokeStyle='rgba(16,185,129,.4)';ctx.lineWidth=2;ctx.setLineDash([6,3]);ctx.stroke();ctx.setLineDash([]);
+    }
+
+    points.forEach((p,i)=>{
+        const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad);
+        const r=dominated[i]?5:8;
+        ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);
+        ctx.fillStyle=p.color;
+        ctx.globalAlpha=dominated[i]?0.5:1;
+        ctx.fill();
+        ctx.globalAlpha=1;
+        if(!dominated[i]){
+            ctx.strokeStyle='#10b981';ctx.lineWidth=2;ctx.stroke();
+        }
+        ctx.fillStyle='#1e293b';ctx.font=`${dominated[i]?8:9}px sans-serif`;
+        ctx.textAlign='center';
+        ctx.fillText(p.name.split(' ')[0],px,py-(r+3));
+    });
+
+    const details=document.getElementById('paretoDetails');
+    const paretoEmp=points.filter((_,i)=>!dominated[i]).map(p=>p.name);
+    details.innerHTML=`<b>🟢 Frente de Pareto (${paretoEmp.length} empleados):</b> ${paretoEmp.join(', ')}<br>
+    <span style="color:#64748b;">Estos empleados tienen la mejor combinación de equidad global y fairness histórico simultáneamente. Son los candidatos preferentes del motor.</span>`;
+}
+function closeParetoModal(){document.getElementById('modalPareto').style.display='none';}
+
+// ============================================================
+// 18. RENDERIZADO VISUAL
+// ============================================================
+function renderOutput() {
+    const y = currentDate.getFullYear(), m = currentDate.getMonth();
+    const dInM = new Date(y, m + 1, 0).getDate(), first = (new Date(y, m, 1).getDay() || 7) - 1;
+
+    // 1. CALENDARIO VISUAL (Píldoras)
+    const cal = document.getElementById('mainCalendar');
+    let h = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map(d => `<div class="cal-head">${d}</div>`).join('');
+    for (let i = 0; i < first; i++) h += `<div style="background:#f8fafc"></div>`;
+    
+    for (let d = 1; d <= dInM; d++) {
+        const dataTarget = isManualMode ? 'asignadoManual' : 'asignado';
+        let pills = employeesData.filter(e => db[e.name][dataTarget] && db[e.name][dataTarget].includes(d))
+            .map(e => `<span class="pill" style="background:${e.color}">${e.name}</span>`).join('');
+        
+        h += `<div class="cal-day ${isFF(d) ? 'is-festivo' : ''}">
+            <span style="font-size:.72rem;font-weight:800;">${d}</span>
+            <button class="btn-fest-toggle ${manualHolidays.includes(d) ? 'active' : ''}" onclick="toggleFestivo(${d})">F</button>
+            <div style="margin-top:8px">${pills}</div>
+        </div>`;
+    }
+    cal.innerHTML = h;
+
+    // 2. TABLA AUTO
+    const tableAuto = document.getElementById('matrixTable');
+    let th = `<tr><th>Empleado</th>` + [...Array(dInM).keys()].map(i => {
+        const d = i + 1;
+        return `<th class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''}" style="cursor:pointer;" onclick="toggleFestivo(${d})">${d}</th>`;
+    }).join('') + `<th>Total</th><th>Visperas</th><th>Festivos</th></tr>`;
+
+    let tbAuto = employeesData.map(e => {
+        let cells = "", vC = 0, fC = 0;
         for (let d = 1; d <= dInM; d++) {
-            let assigned = employeesData.filter(e => db[e.name].asignado.includes(d)).map(e => e.name);
-            while (assigned.length > 2) {
-                let mandatory = (lastManualAction.day === d) ? lastManualAction.name : null;
-                let removable = assigned.filter(name => name !== mandatory);
-                if(removable.length === 0) removable = [...assigned];
-                
-                removable.sort((a,b) => db[b].asignado.length - db[a].asignado.length);
-                let pToMove = removable[0];
-                
-                db[pToMove].asignado = db[pToMove].asignado.filter(x => x !== d);
-                assigned = assigned.filter(x => x !== pToMove);
-                
-                let newD = findEmptyDayFor(pToMove);
-                if (newD) {
-                    db[pToMove].asignado.push(newD);
-                    addLog(`🔄 <b>Resolución Día ${d}:</b> Mantenemos manual. Reubicamos a ${pToMove} al día libre ${newD}.`);
-                } else {
-                    let swap = findSwapFor(pToMove, d);
-                    if (swap) {
-                        db[swap.displacedPerson].asignado = db[swap.displacedPerson].asignado.filter(x => x !== swap.targetDay);
-                        db[swap.displacedPerson].asignado.push(swap.newDayForDisplaced);
-                        db[pToMove].asignado.push(swap.targetDay);
-                        addLog(`🔀 <b>Permuta en Cadena:</b> ${pToMove} pasa al día ${swap.targetDay}. Desplazado ${swap.displacedPerson} al día ${swap.newDayForDisplaced}.`);
-                    } else {
-                        addLog(`⚠️ <b>Aviso:</b> Se retiró a ${pToMove} del día ${d} por exceso, sin huecos legales para reubicarlo.`);
-                    }
-                }
-            }
+            const assigned = db[e.name].asignado && db[e.name].asignado.includes(d);
+            const isPref = db[e.name].prefs.includes(d);
+            const isNo = db[e.name].noDisp.includes(d);
+
+            if (assigned) { if (isFF(d)) fC++; else if (isVP(d)) vC++; }
+
+            // ÚNICA DECLARACIÓN DE VARIABLES PARA EVITAR EL BLOQUEO
+            let cont = assigned ? "G" : (isPref ? "P" : (isNo ? "X" : ""));
+            let cls = assigned ? "cell-imported" : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
+
+            cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls}">${cont}</td>`;
         }
-        lastManualAction = { name: null, day: null };
-        if (isManualMode) syncManualFromAuto();
-        renderOutput();
-    }
+        return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}
+                <td class="stat-val">${db[e.name].asignado.length}/${db[e.name].qTotal}</td>
+                <td class="stat-val">${vC}/${db[e.name].qV}</td>
+                <td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
+    }).join('');
+    tableAuto.innerHTML = th + tbAuto;
 
-    function findEmptyDayFor(name) {
-        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        for(let minRest of [2, 1]) {
-            for(let d=1; d<=dInM; d++) {
-                if(countInDay(d) < 2 && !db[name].asignado.includes(d) && !db[name].noDisp.includes(d) && checkLegality(name, d, minRest)) return d;
-            }
-        }
-        return null;
-    }
+    // 3. ALERTAS DE COBERTURA AUTO
+    let conflict = false;
+    for (let d = 1; d <= dInM; d++) if (countInDay(d) > 2) conflict = true;
+    if (document.getElementById('conflictAlert')) document.getElementById('conflictAlert').style.display = conflict ? 'flex' : 'none';
 
-    function findSwapFor(name, originalDay) {
-        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        for(let targetDay = 1; targetDay <= dInM; targetDay++) {
-            if(targetDay === originalDay) continue;
-            if(db[name].asignado.includes(targetDay) || db[name].noDisp.includes(targetDay)) continue;
-            if(!checkLegality(name, targetDay, 1)) continue; 
-            
-            let currentWorkers = employeesData.filter(e => db[e.name].asignado.includes(targetDay)).map(e => e.name);
-            for(let displacedPerson of currentWorkers) {
-                db[displacedPerson].asignado = db[displacedPerson].asignado.filter(x => x !== targetDay); 
-                let emptyD = findEmptyDayFor(displacedPerson);
-                db[displacedPerson].asignado.push(targetDay); 
-                if(emptyD) return { targetDay, displacedPerson, newDayForDisplaced: emptyD };
-            }
-        }
-        return null;
-    }
-
-    // --- EXPORTAR PDF ---
-    async function exportToPDF() {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('l', 'mm', 'a4'); 
-        const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase();
-
-        addLog("Generando PDF...");
-        document.getElementById('pdf-title-1').innerText = monthYear + " - CALENDARIO (" + (isManualMode ? "MANUAL" : "AUTO") + ")";
-        document.getElementById('pdf-title-1').style.display = 'block';
-        
-        const title2El = isManualMode ? document.getElementById('pdf-title-manual') : document.getElementById('pdf-title-2');
-        title2El.innerText = monthYear + " - CUADRANTE " + (isManualMode ? "MANUAL" : "TÉCNICO");
-        title2El.style.display = 'block';
-
-        const page1 = document.getElementById('pdf-page-1');
-        const page2 = isManualMode ? document.getElementById('pdf-page-manual') : document.getElementById('pdf-page-2');
-
-        const canvas1 = await html2canvas(page1, { scale: 2 });
-        pdf.addImage(canvas1.toDataURL('image/png'), 'PNG', 10, 10, 277, 0);
-
-        pdf.addPage();
-        const canvas2 = await html2canvas(page2, { scale: 2 });
-        pdf.addImage(canvas2.toDataURL('image/png'), 'PNG', 10, 10, 277, 0);
-
-        const suffix = isManualMode ? "_Manual" : "_Auto";
-        pdf.save(`Cuadrante_${monthYear.replace(" ", "_")}${suffix}.pdf`);
-
-        document.getElementById('pdf-title-1').style.display = 'none';
-        title2El.style.display = 'none';
-        addLog("✅ PDF exportado correctamente.");
-    }
-
-    // --- RENDERIZADO VISUAL ---
-    function renderOutput() {
-        const y = currentDate.getFullYear(), m = currentDate.getMonth();
-        const dInM = new Date(y, m + 1, 0).getDate(), first = (new Date(y, m, 1).getDay() || 7) - 1;
-
-        // CALENDARIO TOP (Depende de si estamos en Manual o Auto)
-        const cal = document.getElementById('mainCalendar');
-        let h = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(d => `<div class="cal-head">${d}</div>`).join('');
-        for(let i=0; i<first; i++) h += `<div style="background:#f8fafc"></div>`;
-        for(let d=1; d<=dInM; d++) {
-            const isF = isFF(d);
-            const dataTarget = isManualMode ? 'asignadoManual' : 'asignado';
-            let pills = employeesData.filter(e => db[e.name][dataTarget].includes(d)).map(e => `<span class="pill" style="background:${e.color}">${e.name}</span>`).join('');
-            h += `<div class="cal-day ${isF?'is-festivo':''}">
-                    <span style="font-size:0.75rem; font-weight: 800;">${d}</span>
-                    <button class="btn-fest-toggle ${manualHolidays.includes(d)?'active':''}" onclick="toggleFestivo(${d})">F</button>
-                    <div style="margin-top:10px">${pills}</div>
-                  </div>`;
-        }
-        cal.innerHTML = h;
-
-        // TABLA 1: AUTO (Estricta)
-        const tableAuto = document.getElementById('matrixTable');
-        let th = `<tr><th>Empleado</th>` + [...Array(dInM).keys()].map(i => {
-            const d = i+1; return `<th class="${isFF(d)?'col-festivo':(isVP(d)?'col-viernes':'')}">${d}</th>`;
-        }).join('') + `<th>Total</th><th>V/P</th><th>F/F</th></tr>`;
-        
-        let tbAuto = employeesData.map(e => {
+    // 4. TABLA MANUAL Y ADVERTENCIAS
+    if (isManualMode) {
+        const tableManual = document.getElementById('matrixTableManual');
+        let tbMan = employeesData.map(e => {
             let cells = "", vC = 0, fC = 0;
-            for(let d=1; d<=dInM; d++) {
-                const assigned = db[e.name].asignado.includes(d);
-                if(assigned) { if(isFF(d)) fC++; else if(isVP(d)) vC++; }
-                
-                let cont = assigned ? (db[e.name].prefs.includes(d) ? "P" : "X") : "";
-                let cls = assigned ? (db[e.name].prefs.includes(d) ? "cell-pref" : "cell-assigned") : (db[e.name].noDisp.includes(d) ? "cell-no" : (db[e.name].prefs.includes(d) ? "cell-pref" : ""));
-                
-                cells += `<td class="${isFF(d)?'col-festivo':(isVP(d)?'col-viernes':'')} ${cls}" onclick="toggleManualAsign('${e.name}', ${d}, this)" style="cursor:pointer">${cont}</td>`;
+            for (let d = 1; d <= dInM; d++) {
+                const assigned = db[e.name].asignadoManual && db[e.name].asignadoManual.includes(d);
+                const isPref = db[e.name].prefs.includes(d);
+                const isNo = db[e.name].noDisp.includes(d);
+
+                if (assigned) { if (isFF(d)) fC++; else if (isVP(d)) vC++; }
+
+                // ÚNICA DECLARACIÓN DE VARIABLES (Manual)
+                let cont = assigned ? "G" : (isPref ? "P" : (isNo ? "X" : ""));
+                let cls = assigned ? "cell-imported" : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
+
+                cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls}" 
+                          style="cursor:pointer;" onclick="toggleFreeManualAsign('${e.name}',${d})">${cont}</td>`;
             }
-            return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}<td class="stat-val">${db[e.name].asignado.length}/${db[e.name].qTotal}</td><td class="stat-val">${vC}/${db[e.name].qV}</td><td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
+            return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}
+                    <td class="stat-val">${db[e.name].asignadoManual.length}/${db[e.name].qTotal}</td>
+                    <td class="stat-val">${vC}/${db[e.name].qV}</td>
+                    <td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
         }).join('');
-        tableAuto.innerHTML = th + tbAuto;
-        
-        let conflict = false;
-        for(let d=1; d<=dInM; d++) if(countInDay(d) > 2) conflict = true;
-        document.getElementById('conflictAlert').style.display = conflict ? 'flex' : 'none';
+        tableManual.innerHTML = th + tbMan;
 
-        // TABLA 2: MANUAL (Libre) y Auditoría
-        if (isManualMode) {
-            const tableManual = document.getElementById('matrixTableManual');
-            let tbMan = employeesData.map(e => {
-                let cells = "", vC = 0, fC = 0;
-                for(let d=1; d<=dInM; d++) {
-                    const assigned = db[e.name].asignadoManual.includes(d);
-                    if(assigned) { if(isFF(d)) fC++; else if(isVP(d)) vC++; }
-                    
-                    let cont = assigned ? (db[e.name].prefs.includes(d) ? "P" : "X") : "";
-                    let cls = assigned ? (db[e.name].prefs.includes(d) ? "cell-pref" : "cell-assigned") : (db[e.name].noDisp.includes(d) ? "cell-no" : (db[e.name].prefs.includes(d) ? "cell-pref" : ""));
-                    
-                    cells += `<td class="${isFF(d)?'col-festivo':(isVP(d)?'col-viernes':'')} ${cls}" onclick="toggleFreeManualAsign('${e.name}', ${d})" style="cursor:pointer">${cont}</td>`;
-                }
-                return `<tr><td class="row-name" style="background:${e.color}">${e.name}</td>${cells}<td class="stat-val">${db[e.name].asignadoManual.length}/${db[e.name].qTotal}</td><td class="stat-val">${vC}/${db[e.name].qV}</td><td class="stat-val">${fC}/${db[e.name].qF}</td></tr>`;
-            }).join('');
-            tableManual.innerHTML = th + tbMan;
+        // --- SISTEMA DE AUDITORÍA MANUAL ---
+        let warnings = [];
+        for (let d = 1; d <= dInM; d++) {
+            let workers = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).map(e => e.name);
+            if (workers.length > 2) warnings.push(`Día ${d}: Exceso de personal (${workers.length}/2).`);
+            if (workers.length < 2) warnings.push(`Día ${d}: Falta personal (${workers.length}/2).`);
+            if (workers.includes("Oscar") && workers.includes("Gema")) warnings.push(`Día ${d}: Oscar y Gema asignados juntos.`);
+        }
 
-            // --- PANEL DE AUDITORÍA MODO MANUAL ---
-            let warnings = [];
-            for(let d=1; d<=dInM; d++) {
-                let workers = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).map(e => e.name);
-                if(workers.length > 2) warnings.push(`Día ${d}: Exceso de personal (${workers.length} personas asignadas).`);
-                if(workers.includes("Oscar") && workers.includes("Gema")) warnings.push(`Día ${d}: Oscar y Gema trabajan juntos.`);
-            }
-
-            employeesData.forEach(e => {
-                let myDays = db[e.name].asignadoManual;
-                myDays.forEach(d => {
-                    if(db[e.name].noDisp.includes(d)) warnings.push(`<b>${e.name}</b>: Asignado el día ${d} pero está marcado como Indisponible (X).`);
-                    if(myDays.includes(d + 1)) warnings.push(`<b>${e.name}</b>: Sin descanso obligatorio de 24h entre días ${d} y ${d+1}.`);
-                    
-                    let date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
-                    if(date.getDay() === 6 && myDays.includes(d + 2)) {
-                        warnings.push(`<b>${e.name}</b>: No cumple norma Sábado-Lunes (Trabaja día ${d} y ${d+2}).`);
-                    }
-                });
+        employeesData.forEach(e => {
+            let myDays = db[e.name].asignadoManual;
+            myDays.forEach(d => {
+                if (db[e.name].noDisp.includes(d)) warnings.push(`<b>${e.name}</b>: Guardia el día ${d} (tenía Indisponibilidad X).`);
+                
+                if (myDays.includes(d + 1)) warnings.push(`<b>${e.name}</b>: Doblete detectado (días ${d} y ${d + 1}).`);
+                if (myDays.includes(d + 2)) warnings.push(`<b>${e.name}</b>: Descanso de 48h insuficiente (días ${d} y ${d + 2}).`);
+                
+                let date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+                if (date.getDay() === 1 && myDays.includes(d - 2)) warnings.push(`<b>${e.name}</b>: Lunes ${d} asignado habiendo trabajado el Sábado ${d - 2}.`);
+                if (date.getDay() === 6 && myDays.includes(d + 2)) warnings.push(`<b>${e.name}</b>: Sábado ${d} asignado habiendo trabajado el Lunes ${d + 2}.`);
             });
+        });
 
-            let oscarDays = db["Oscar"] ? db["Oscar"].asignadoManual : [];
-            let gemaDays = db["Gema"] ? db["Gema"].asignadoManual : [];
-            oscarDays.forEach(d => {
-                if(gemaDays.includes(d+1)) warnings.push(`Oscar y Gema en días consecutivos (${d} y ${d+1}).`);
-                if(gemaDays.includes(d-1)) warnings.push(`Oscar y Gema en días consecutivos (${d-1} y ${d}).`);
-            });
-            warnings = [...new Set(warnings)]; // Eliminar duplicados
+        let oscarDays = db["Oscar"] ? db["Oscar"].asignadoManual : [];
+        let gemaDays = db["Gema"] ? db["Gema"].asignadoManual : [];
+        oscarDays.forEach(d => {
+            if (gemaDays.includes(d + 1) || gemaDays.includes(d - 1)) 
+                warnings.push("Oscar y Gema trabajando en días consecutivos.");
+        });
 
-            const alertBox = document.getElementById('conflictAlertManual');
-            const list = document.getElementById('manualWarningsList');
-            if(warnings.length > 0) {
+        warnings = [...new Set(warnings)];
+        const alertBox = document.getElementById('conflictAlertManual');
+        const list = document.getElementById('manualWarningsList');
+        if (alertBox && list) {
+            if (warnings.length > 0) {
                 alertBox.style.display = 'block';
                 list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
             } else {
@@ -656,127 +1431,385 @@
         }
     }
 
-    // --- GESTIÓN EMPLEADOS ---
-    function openAddEmployeeModal() { document.getElementById('modalAddEmp').style.display = 'flex'; }
-    function closeAddEmployeeModal() { document.getElementById('modalAddEmp').style.display = 'none'; }
-    function addEmployee() {
-        const name = document.getElementById('newEmpName').value.trim(); const color = document.getElementById('newEmpColor').value;
-        if(!name) return; employeesData.push({ name, color }); db[name] = { name, color, noDisp: [], prefs: [], asignado: [], asignadoManual: [], qTotal: 0, qV: 0, qF: 0 };
-        closeAddEmployeeModal(); updateView();
-    }
-    function removeEmployee(name) {
-        if(confirm(`¿Eliminar a ${name} permanentemente?`)) { employeesData = employeesData.filter(e => e.name !== name); delete db[name]; updateView(); }
-    }
-
-    function renderEmployees() {
-        document.getElementById('employeeList').innerHTML = employeesData.map(e => `
-            <div class="emp-card" style="--emp-color: ${e.color}">
-                <button class="btn-del-emp" onclick="removeEmployee('${e.name}')">🗑️</button>
-                <div class="emp-header"><span class="emp-name">${e.name}</span></div>
-                <div class="input-group">
-                    <div class="input-field"><label>Objetivo</label><input type="number" value="${db[e.name].qTotal}" onchange="db['${e.name}'].qTotal=parseInt(this.value)||0"></div>
-                    <div class="input-field"><label>Vie/Pre</label><input type="number" value="${db[e.name].qV}" onchange="db['${e.name}'].qV=parseInt(this.value)||0"></div>
-                    <div class="input-field"><label>Fin/Fes</label><input type="number" value="${db[e.name].qF}" onchange="db['${e.name}'].qF=parseInt(this.value)||0"></div>
-                </div>
-                <div class="btn-actions-row">
-                    <button class="btn-action-pick" style="color:var(--danger)" onclick="openModal('${e.name}', 'NO')">🚫 Libranza</button>
-                    <button class="btn-action-pick" style="color:var(--primary)" onclick="openModal('${e.name}', 'YES')">⭐ Petición</button>
-                </div>
-            </div>`).join('');
+    // 5. ESTADO DE VALIDACIÓN
+    const btnValA = document.getElementById('btn-validate-auto');
+    const btnValM = document.getElementById('btn-validate-manual');
+    const badgeA = document.getElementById('status-validated-auto');
+    if (typeof isMonthValidated !== 'undefined' && isMonthValidated) {
+        if (btnValA) btnValA.style.display = 'none';
+        if (btnValM) btnValM.style.display = 'none';
+        if (badgeA) badgeA.style.display = 'inline-block';
+    } else {
+        if (btnValA) btnValA.style.display = 'inline-block';
+        if (btnValM) btnValM.style.display = 'inline-block';
+        if (badgeA) badgeA.style.display = 'none';
     }
 
-    let isDragging = false;
-    function openModal(n, m) { curEmp = n; curMode = m; document.getElementById('modal').style.display='flex'; document.getElementById('modalName').innerText=n; document.getElementById('modalDesc').innerText = m==='NO'?'Marcar LIBRANZAS (Rojo)':'Marcar PETICIONES (Azul)'; renderPicker(); }
-    function closeModal() { document.getElementById('modal').style.display='none'; renderEmployees(); renderOutput(); }
-    function renderPicker() {
-        const grid = document.getElementById('pickerGrid'); grid.innerHTML = '';
-        const list = curMode === 'NO' ? db[curEmp].noDisp : db[curEmp].prefs;
-        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        const first = (new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay() || 7) - 1;
-        
-        ['L','M','X','J','V','S','D'].forEach(d => grid.innerHTML += `<div style="text-align:center;font-weight:800;font-size:0.75rem;color:#475569;">${d}</div>`);
-        for(let i=0; i<first; i++) grid.innerHTML += `<div></div>`;
-        for(let d=1; d<=dInM; d++) {
-            const div = document.createElement('div');
-            const active = list.includes(d);
-            div.className = `p-day ${active ? (curMode==='NO'?'active-no':'active-yes') : ''}`;
-            div.innerText = d;
-            div.onmousedown = (e) => { e.preventDefault(); isDragging = true; togglePickerDay(d, !active); };
-            div.onmouseover = () => { if(isDragging) togglePickerDay(d, !active); };
-            grid.appendChild(div);
+    if (typeof renderEmployees === "function") renderEmployees();
+}
+
+// ============================================================
+// 19. GESTIÓN EMPLEADOS
+// ============================================================
+function openAddEmployeeModal(){document.getElementById('modalAddEmp').style.display='flex';}
+function closeAddEmployeeModal(){document.getElementById('modalAddEmp').style.display='none';}
+function addEmployee(){
+    const name=document.getElementById('newEmpName').value.trim();
+    const color=document.getElementById('newEmpColor').value;
+    if(!name) return;
+    employeesData.push({name,color});
+    db[name]={name,color,noDisp:[],prefs:[],asignado:[],asignadoManual:[],qTotal:0,qV:0,qF:0,startingAccVP:0,startingAccFF:0};
+    patternMemory[name]={totalFF:0,totalVP:0,totalN:0,months:0};
+    closeAddEmployeeModal();saveMonthState();updateView();
+}
+function removeEmployee(name){
+    if(confirm(`¿Eliminar a ${name} permanentemente?`)){
+        employeesData=employeesData.filter(e=>e.name!==name);delete db[name];saveMonthState();updateView();
+    }
+}
+
+// --- FUNCIONES DE EDICIÓN DE EMPLEADO ---
+
+function openEditEmployeeModal(name) {
+    const emp = employeesData.find(e => e.name === name);
+    if (!emp) return;
+    
+    // Rellenamos el modal con los datos actuales
+    document.getElementById('editEmpOldName').value = name;
+    document.getElementById('editEmpName').value = emp.name;
+    document.getElementById('editEmpColor').value = emp.color;
+    document.getElementById('modalEditEmp').style.display = 'flex';
+}
+
+function closeEditEmployeeModal() {
+    document.getElementById('modalEditEmp').style.display = 'none';
+}
+
+function saveEditEmployee() {
+    const oldName = document.getElementById('editEmpOldName').value;
+    const newName = document.getElementById('editEmpName').value.trim();
+    const newColor = document.getElementById('editEmpColor').value;
+
+    if (!newName) return alert("El nombre no puede estar vacío.");
+    
+    // Si ha cambiado el nombre, verificamos que no se llame igual que otro que ya exista
+    if (newName !== oldName && employeesData.some(e => e.name === newName)) {
+        return alert("Ya existe un empleado con ese nombre.");
+    }
+
+    const empIndex = employeesData.findIndex(e => e.name === oldName);
+    if (empIndex > -1) {
+        employeesData[empIndex].name = newName;
+        employeesData[empIndex].color = newColor;
+
+        if (newName !== oldName) {
+            // 1. MIGRACIÓN CRÍTICA: Movemos sus datos de 'db' a la nueva clave de nombre
+            db[newName] = { ...db[oldName], name: newName, color: newColor };
+            delete db[oldName]; // Borramos el registro antiguo
+
+            // 2. MIGRACIÓN DE MEMORIA: Movemos sus estadísticas históricas
+            patternMemory[newName] = { ...patternMemory[oldName] };
+            delete patternMemory[oldName];
+        } else {
+            // Si solo cambió el color
+            db[newName].color = newColor;
         }
-    }
-    function togglePickerDay(d, forceActive) {
-        const list = curMode === 'NO' ? db[curEmp].noDisp : db[curEmp].prefs;
-        const opp = curMode === 'NO' ? db[curEmp].prefs : db[curEmp].noDisp;
-        if(forceActive) {
-            if(!list.includes(d)) list.push(d);
-            if(opp.includes(d)) opp.splice(opp.indexOf(d), 1);
-            if(curMode === 'NO') {
-                db[curEmp].asignado = db[curEmp].asignado.filter(x => x !== d);
-                db[curEmp].asignadoManual = db[curEmp].asignadoManual.filter(x => x !== d);
-            }
-        } else { if(list.includes(d)) list.splice(list.indexOf(d), 1); }
-        renderPicker();
-    }
-    window.onmouseup = () => isDragging = false;
 
-    // --- ACCIONES GENERALES ---
-    function toggleFestivo(d) { const i = manualHolidays.indexOf(d); if(i>-1) manualHolidays.splice(i,1); else manualHolidays.push(d); renderOutput(); }
-    function changeMonth(o) { currentDate.setMonth(currentDate.getMonth()+o); manualHolidays=[]; employeesData.forEach(e=>{db[e.name].noDisp=[];db[e.name].prefs=[];db[e.name].asignado=[]; db[e.name].asignadoManual=[];}); updateView(); }
-    function showTab(t) { document.getElementById('tab-calendario').classList.toggle('hidden', t!=='calendario'); document.getElementById('tab-empleados').classList.toggle('hidden', t!=='empleados'); document.getElementById('btn-tab-cal').classList.toggle('active', t==='calendario'); document.getElementById('btn-tab-emp').classList.toggle('active', t==='empleados'); }
-    function updateView() { document.getElementById('monthDisplay').innerText = currentDate.toLocaleString('es-ES', {month:'long', year:'numeric'}); renderEmployees(); renderOutput(); }
-    function clearAssignment() { if(confirm("¿Borrar asignaciones del mes?")) { employeesData.forEach(e => { db[e.name].asignado = []; db[e.name].asignadoManual = []; }); document.getElementById('auditLog').innerHTML = "<div class='log-entry'>Cuadrante reiniciado.</div>"; renderOutput(); } }
+        closeEditEmployeeModal();
+        saveMonthState();
+        updateView(); // Refresca toda la interfaz para aplicar los cambios de color/nombre
+    }
+}
 
-    function exportToExcel() {
-        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-        const rows = [["Empleado", ...Array.from({length: dInM}, (_, i) => i + 1)]];
-        employeesData.forEach(emp => {
-            const r = [emp.name];
-            for(let d=1; d<=dInM; d++) {
-                if(db[emp.name].noDisp.includes(d)) r.push("X");
-                else if(db[emp.name].prefs.includes(d)) r.push("P");
-                else r.push("");
+function renderEmployees() {
+    document.getElementById('employeeList').innerHTML = employeesData.map(e => {
+        let curFF = 0, curVP = 0;
+        const dataT = isManualMode ? 'asignadoManual' : 'asignado';
+        if (db[e.name][dataT]) { db[e.name][dataT].forEach(d => { if (isFF(d)) curFF++; else if (isVP(d)) curVP++; }); }
+        const mem = patternMemory[e.name] || { totalFF: 0, totalVP: 0, totalN: 0, months: 0 };
+        return `
+        <div class="emp-card" style="--emp-color:${e.color}">
+            
+            <div class="emp-header" style="align-items:flex-start; padding-right:0; margin-bottom:14px;">
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    <span class="emp-name" style="line-height:1;">${e.name}</span>
+                    <span class="emp-blocked-badge" style="width:max-content;">🚫 ${db[e.name].noDisp.length} bloqueados</span>
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <button style="background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:4px 6px;cursor:pointer;font-size:0.9rem;" onclick="openEditEmployeeModal('${e.name}')" title="Editar Nombre y Color">✏️</button>
+                    <button style="background:#fff1f2;border:1px solid #fecdd3;border-radius:6px;padding:4px 6px;cursor:pointer;font-size:0.9rem;" onclick="removeEmployee('${e.name}')" title="Eliminar Empleado">🗑️</button>
+                </div>
+            </div>
+
+            <div class="section-title">Acumulado hasta (${document.getElementById('monthDisplay').innerText})</div>
+            <div class="input-group grid-2">
+                <div class="input-field"><label>Visperas Total</label><input type="text" value="${(db[e.name].startingAccVP || 0) + curVP}" disabled style="background:#e2e8f0;color:#333;"></div>
+                <div class="input-field"><label>Festivos Total</label><input type="text" value="${(db[e.name].startingAccFF || 0) + curFF}" disabled style="background:#e2e8f0;color:#333;"></div>
+            </div>
+            
+            <div class="section-title">🧠 Memoria Histórica (${mem.months} meses)</div>
+            <div class="input-group" style="grid-template-columns:repeat(3,1fr);font-size:.68rem;">
+                <div class="input-field"><label>Festivos Hist.</label><input type="text" value="${mem.totalFF}" disabled style="background:#fef3c7;color:#92400e;"></div>
+                <div class="input-field"><label>Visperas Hist.</label><input type="text" value="${mem.totalVP}" disabled style="background:#dbeafe;color:#1e40af;"></div>
+                <div class="input-field"><label>Normal Hist.</label><input type="text" value="${mem.totalN}" disabled style="background:#f0fdf4;color:#166534;"></div>
+            </div>
+            
+            <div class="section-title">Objetivos Mensuales</div>
+            <div class="input-group">
+                <div class="input-field"><label>Total</label><input type="number" value="${db[e.name].qTotal || 0}" onchange="db['${e.name}'].qTotal=parseInt(this.value)||0;saveMonthState();"></div>
+                <div class="input-field"><label>Visperas</label><input type="number" value="${db[e.name].qV || 0}" onchange="db['${e.name}'].qV=parseInt(this.value)||0;saveMonthState();"></div>
+                <div class="input-field"><label>Festivos</label><input type="number" value="${db[e.name].qF || 0}" onchange="db['${e.name}'].qF=parseInt(this.value)||0;saveMonthState();"></div>
+            </div>
+            
+            <div class="btn-actions-row">
+                <button class="btn-action-pick" style="color:var(--danger)" onclick="openModal('${e.name}','NO')">🚫 Libranza</button>
+                <button class="btn-action-pick" style="color:var(--primary)" onclick="openModal('${e.name}','YES')">⭐ Petición</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openModal(n,m){curEmp=n;curMode=m;document.getElementById('modal').style.display='flex';document.getElementById('modalName').innerText=n;document.getElementById('modalDesc').innerText=m==='NO'?'Marcar LIBRANZAS (Rojo)':'Marcar PETICIONES (Azul)';renderPicker();}
+function closeModal(){document.getElementById('modal').style.display='none';renderOutput();}
+function renderPicker(){
+    const grid=document.getElementById('pickerGrid');grid.innerHTML='';
+    const list=curMode==='NO'?db[curEmp].noDisp:db[curEmp].prefs;
+    const dInM=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
+    const first=(new Date(currentDate.getFullYear(),currentDate.getMonth(),1).getDay()||7)-1;
+    ['L','M','X','J','V','S','D'].forEach(d=>grid.innerHTML+=`<div style="text-align:center;font-weight:800;font-size:.72rem;color:#475569;">${d}</div>`);
+    for(let i=0;i<first;i++) grid.innerHTML+=`<div></div>`;
+    for(let d=1;d<=dInM;d++){
+        const div=document.createElement('div');
+        const active=list.includes(d);
+        div.className=`p-day ${active?(curMode==='NO'?'active-no':'active-yes'):''}`;
+        div.innerText=d;
+        div.onmousedown=(e)=>{e.preventDefault();isDragging=true;togglePickerDay(d,!active);};
+        div.onmouseover=()=>{if(isDragging) togglePickerDay(d,!active);};
+        grid.appendChild(div);
+    }
+}
+function togglePickerDay(d,forceActive){
+    const list=curMode==='NO'?db[curEmp].noDisp:db[curEmp].prefs;
+    const opp=curMode==='NO'?db[curEmp].prefs:db[curEmp].noDisp;
+    if(forceActive){
+        if(!list.includes(d)) list.push(d);
+        if(opp.includes(d)) opp.splice(opp.indexOf(d),1);
+        if(curMode==='NO'){db[curEmp].asignado=db[curEmp].asignado.filter(x=>x!==d);db[curEmp].asignadoManual=db[curEmp].asignadoManual.filter(x=>x!==d);}
+    } else {if(list.includes(d)) list.splice(list.indexOf(d),1);}
+    saveMonthState();renderPicker();
+}
+window.onmouseup=()=>isDragging=false;
+
+function showTab(t) {
+    // 1. Mostrar/Ocultar los paneles
+    ['calendario', 'beam', 'memory', 'empleados'].forEach(id => {
+        const panel = document.getElementById(`tab-${id}`);
+        if (panel) panel.classList.toggle('hidden', t !== id);
+    });
+
+    // 2. Mapeo de IDs de botones
+    const buttonIds = {
+        'calendario': 'btn-tab-cal',
+        'beam': 'btn-tab-beam',
+        'memory': 'btn-tab-memory',
+        'empleados': 'btn-tab-emp'
+    };
+
+    // 3. Quitar clase active de todos
+    Object.values(buttonIds).forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.remove('active');
+    });
+
+    // 4. Poner clase active solo al pulsado
+    const activeBtn = document.getElementById(buttonIds[t]);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (t === 'beam') renderBeamTab();
+    if (t === 'memory') renderMemoryTab();
+}
+
+function updateView(){
+    document.getElementById('monthDisplay').innerText=currentDate.toLocaleString('es-ES',{month:'long',year:'numeric'});
+    renderOutput();
+    renderMemoryTab();
+}
+
+// ============================================================
+// 20. LIMPIEZA Y EXPORTACIÓN
+// ============================================================
+function clearAssignment(){
+    if(isMonthValidated) return alert("Mes validado y cerrado. No se puede limpiar.");
+    if(confirm("¿Borrar asignaciones del mes?")){
+        employeesData.forEach(e=>{db[e.name].asignado=[];db[e.name].asignadoManual=[];});
+        beamSnapshots={};scoreHistory=[];ortoolsResult=null;
+        saveMonthState();
+        document.getElementById('auditLog').innerHTML="<div class='log-entry'>Cuadrante reiniciado.</div>";
+        renderOutput();renderOrtoolsStats();
+    }
+}
+
+function exportToExcel() {
+    const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const rows = [["Empleado","AccVP","AccFF","Obj","","","","", ...Array.from({length:dInM},(_,i)=>i+1)]];
+    
+    employeesData.forEach(e => {
+        const targetData = typeof isManualMode !== 'undefined' && isManualMode ? db[e.name].asignadoManual : db[e.name].asignado;
+        let r = [e.name, db[e.name].startingAccVP, db[e.name].startingAccFF, db[e.name].qTotal, "","","",""];
+        
+        for(let d=1; d<=dInM; d++) {
+            if(targetData.includes(d)) r.push("G");
+            else if(db[e.name].noDisp.includes(d)) r.push("X");
+            else if(db[e.name].prefs.includes(d)) r.push("P");
+            else r.push("");
+        }
+        rows.push(r);
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cuadrante");
+    XLSX.writeFile(wb, `Planificador_PRO_${currentDate.getMonth()+1}.xlsx`);
+}
+
+function importFromExcel(e) {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        const json = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(evt.target.result), {type: 'array'}).Sheets[XLSX.read(new Uint8Array(evt.target.result), {type: 'array'}).SheetNames[0]], {header: 1});
+        let start = json.findIndex(r => r[0] === "Empleado");
+        if(start === -1) return alert("Formato no válido. Asegúrate de que la primera celda sea 'Empleado'.");
+        
+        // Paleta de colores para asignar a los nuevos empleados automáticamente
+        const colorPalette = ["#45b7af", "#d9b3c1", "#c8bfe7", "#d1e2c4", "#4a69bd", "#ef4444", "#ccff00", "#00ffff", "#ff00ff", "#006400", "#e67e22", "#3498db", "#2ecc71", "#1abc9c", "#802020", "#b2a2a2", "#1e272e"];
+        
+        json.slice(start+1).forEach(r => {
+            const name = r[0];
+            if(!name) return; // Saltamos filas vacías por si el Excel tiene huecos
+            
+            // Si el empleado NO EXISTE, lo creamos desde cero
+            if(!db[name]) {
+                const color = colorPalette[employeesData.length % colorPalette.length];
+                employeesData.push({name, color});
+                db[name] = {
+                    name, color, noDisp:[], prefs:[], asignado:[], asignadoManual:[],
+                    qTotal:0, qV:0, qF:0, startingAccVP:0, startingAccFF:0
+                };
+                patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
+            } else {
+                // Si ya existe, simplemente limpiamos su mes actual para sobreescribirlo
+                db[name].asignado = []; db[name].noDisp = []; db[name].prefs = []; db[name].asignadoManual = [];
             }
-            rows.push(r);
+            
+            // Leemos acumulados y objetivos (0 por defecto)
+            db[name].startingAccVP = isNaN(parseInt(r[1])) ? 0 : parseInt(r[1]);
+            db[name].startingAccFF = isNaN(parseInt(r[2])) ? 0 : parseInt(r[2]);
+            
+            let objValue = parseInt(r[3]);
+            db[name].qTotal = isNaN(objValue) ? 0 : objValue; 
+            
+            // Leemos los 31 días
+            for(let d=1; d<=31; d++) {
+                let v = r[d+7]?.toString().toUpperCase(); 
+                if(v === "G") { db[name].asignado.push(d); db[name].asignadoManual.push(d); }
+                if(v === "X") db[name].noDisp.push(d);
+                if(v === "P") db[name].prefs.push(d);
+            }
         });
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Cuadrante");
-        XLSX.writeFile(wb, "Peticiones_Plantilla.xlsx");
+        
+        saveMonthState(); // Guardamos en memoria
+        addLog("📥 Excel importado con éxito. Empleados actualizados.");
+        updateView(); // Refrescamos las pantallas
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+    // Reseteamos el input para permitir volver a subir el mismo archivo si se cambia algo
+    e.target.value = ''; 
+}
+
+
+async function exportToPDF() {
+    // 1. CONTROL DE VALIDACIÓN
+    if (!isMonthValidated) {
+        alert("⚠️ ATENCIÓN: El cuadrante no ha sido VALIDADO.\n\nPor favor, pulsa el botón '✅ Validar' antes de exportar para generar el documento oficial.");
+        return; 
     }
 
-    function importFromExcel(e) {
-        const file = e.target.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
-                const ws = workbook.Sheets[workbook.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(ws, {header: 1});
-                let startRow = -1;
-                for(let i=0; i<json.length; i++) { if(json[i][0] === "Empleado") { startRow = i; break; } }
-                if(startRow === -1) { alert("Error: Usa la plantilla exportada para importar."); return; }
-                
-                json.slice(startRow + 1).forEach(row => {
-                    const name = row[0];
-                    if(db[name]) {
-                        db[name].noDisp = []; db[name].prefs = [];
-                        for(let d=1; d<=31; d++) {
-                            const val = row[d] ? row[d].toString().toUpperCase() : "";
-                            if(val === "X") db[name].noDisp.push(d);
-                            if(val === "P") db[name].prefs.push(d);
-                        }
-                    }
-                });
-                updateView(); 
-            } catch (error) {
-                alert("Hubo un error leyendo el archivo Excel.");
-            }
-        };
-        reader.readAsArrayBuffer(file);
-        e.target.value = ''; 
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase();
+    
+    addLog("Generando PDF de alta definición (sin logs)...");
+
+    // Elementos a capturar y elementos a ocultar
+    const page1 = document.getElementById('pdf-page-1');
+    const page2Auto = document.getElementById('pdf-page-2');
+    const page2Manual = document.getElementById('pdf-page-manual');
+    const officialCard = (page2Auto.style.display !== 'none') ? page2Auto : page2Manual;
+
+    // Lista de selectores de cosas que NO queremos en el PDF
+    const selectorsToHide = [
+        '#auditLog', 
+        '#ortoolsStats', 
+        '.btn-group', 
+        'button', 
+        '#conflictAlert', 
+        '#conflictAlertManual',
+        '.btn-fest-toggle'
+    ];
+
+    // Función interna para ocultar/mostrar elementos
+    const setUIElementsVisibility = (visible) => {
+        selectorsToHide.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => {
+                el.style.opacity = visible ? "1" : "0"; // Usamos opacity para no romper el layout
+            });
+        });
+        document.getElementById('pdf-title-1').style.display = visible ? 'none' : 'block';
+    };
+
+    try {
+        // OCULTAMOS LOS LOGS Y BOTONES
+        setUIElementsVisibility(false);
+        document.getElementById('pdf-title-1').innerText = monthYear + " - CUADRANTE OFICIAL";
+
+        // CAPTURA 1: Calendario
+        // Subimos scale a 2.0 para eliminar el efecto borroso (Full HD)
+        const canvas1 = await html2canvas(page1, { 
+            scale: 2.0, 
+            useCORS: true,
+            backgroundColor: "#ffffff"
+        });
+        
+        // Calidad 0.85 para mantener nitidez extrema sin pesar demasiado
+        const imgData1 = canvas1.toDataURL('image/jpeg', 0.85);
+        pdf.addImage(imgData1, 'JPEG', 10, 15, 277, 0, undefined, 'MEDIUM');
+
+        pdf.addPage();
+
+        // CAPTURA 2: Cuadrante Validado
+        const canvas2 = await html2canvas(officialCard, { 
+            scale: 2.0, 
+            useCORS: true,
+            backgroundColor: "#ffffff"
+        });
+        
+        const imgData2 = canvas2.toDataURL('image/jpeg', 0.85);
+        pdf.addImage(imgData2, 'JPEG', 10, 15, 277, 0, undefined, 'MEDIUM');
+
+        // Guardar el archivo
+        pdf.save(`Cuadrante_Oficial_${monthYear.replace(" ", "_")}.pdf`);
+        addLog("✅ PDF de alta nitidez exportado.");
+
+    } catch (error) {
+        console.error("Error en PDF:", error);
+        addLog("❌ Error al generar el PDF.");
+    } finally {
+        // RESTAURAMOS LA VISIBILIDAD DE LOS LOGS Y BOTONES
+        setUIElementsVisibility(true);
     }
-    init();
+}
+
+
+init();
 </script>
 </body>
 </html>
