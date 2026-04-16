@@ -1871,14 +1871,13 @@ function importFromExcel(e) {
     reader.onload = (evt) => {
         const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
         
-        // 1. BUSCAR LA HOJA CORRECTA (Ignora las hojas auxiliares)
+        // 1. BUSCAR LA HOJA CORRECTA
         let worksheet = null;
         let json = [];
         for (let i = 0; i < workbook.SheetNames.length; i++) {
             const ws = workbook.Sheets[workbook.SheetNames[i]];
-            const jsonTest = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""}); // defval:"" respeta columnas vacías
+            const jsonTest = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
             
-            // Si la hoja tiene la cabecera "Empleado", es la buena
             if (jsonTest.length > 0 && jsonTest.some(r => r.some(c => String(c).toLowerCase().includes("empleado")))) {
                 worksheet = ws;
                 json = jsonTest;
@@ -1895,20 +1894,25 @@ function importFromExcel(e) {
         let headerRowIndex = json.findIndex(r => r.some(c => String(c).toLowerCase().includes("empleado")));
         let headerRow = json[headerRowIndex];
 
-        // 3. MAPEADO INTELIGENTE (LA CLAVE ESTÁ AQUÍ)
-        // Buscamos en qué índice exacto están el Empleado y el Día 1
         let empIndex = headerRow.findIndex(c => String(c).toLowerCase().includes("empleado"));
         let day1Index = headerRow.findIndex(c => String(c).trim() === "1");
         
-        // Si no encuentra el "1", asumimos que está 6 posiciones a la derecha del Empleado
         if (day1Index === -1) day1Index = empIndex + 6;
+
+        // --- 🧹 LA MAGIA ESTÁ AQUÍ: RESETEO TOTAL ANTES DE LEER ---
+        // Vaciamos la lista de empleados actual y limpiamos la base de datos del mes
+        employeesData.length = 0; 
+        for (let key in db) delete db[key];
+        // ----------------------------------------------------------
 
         const colorPalette = ["#45b7af", "#d9b3c1", "#c8bfe7", "#d1e2c4", "#4a69bd", "#ef4444", "#ccff00", "#00ffff", "#ff00ff", "#006400", "#e67e22", "#3498db", "#2ecc71", "#1abc9c", "#802020", "#b2a2a2", "#1e272e"];
         
+        // 3. LEER EL NUEVO EXCEL DESDE CERO
         json.slice(headerRowIndex + 1).forEach(r => {
             const name = String(r[empIndex] || "").trim(); 
             if(!name || name === "") return;
             
+            // Como hemos reseteado, siempre entrará por aquí para crear a los empleados frescos
             if(!db[name]) {
                 const color = colorPalette[employeesData.length % colorPalette.length];
                 employeesData.push({name, color});
@@ -1916,21 +1920,23 @@ function importFromExcel(e) {
                     name, color, noDisp:[], prefs:[], asignado:[], asignadoManual:[],
                     qTotal:0, qV:0, qF:0, startingAccVP:0, startingAccFF:0
                 };
-                patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
-            } else {
-                db[name].asignado = []; db[name].noDisp = []; db[name].prefs = []; db[name].asignadoManual = [];
+                
+                // Mantenemos la memoria histórica intacta por si ese empleado ya existía en meses pasados
+                if(!patternMemory[name]) {
+                    patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
+                }
             }
             
-            // --- DATOS BASADOS EN LA POSICIÓN DEL EMPLEADO ---
+            // Extraer Objetivos y Acumulados
             db[name].startingAccVP = parseInt(r[empIndex + 1]) || 0; 
             db[name].startingAccFF = parseInt(r[empIndex + 2]) || 0; 
             db[name].qTotal        = parseInt(r[empIndex + 3]) || 0; 
             db[name].qV            = parseInt(r[empIndex + 4]) || 0; 
             db[name].qF            = parseInt(r[empIndex + 5]) || 0; 
             
-            // --- DÍAS BASADOS EN LA POSICIÓN EXACTA DEL "1" ---
+            // Extraer el Cuadrante (G, X, P)
             for(let d = 1; d <= 31; d++) {
-                let cellValue = r[day1Index + d - 1]; // Índice exacto de cada día
+                let cellValue = r[day1Index + d - 1]; 
                 let v = String(cellValue || "").toUpperCase().trim();
                 
                 if(v === "G") { 
@@ -1943,12 +1949,33 @@ function importFromExcel(e) {
         });
         
         saveMonthState();
-        addLog("📥 Excel importado con Mapeo Dinámico (Sin desfases).");
+        addLog("📥 Excel importado. Los datos anteriores se han sobrescrito con éxito.");
         updateView();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
-    e.target.value = ''; 
+    e.target.value = ''; // Fundamental para que te deje volver a cargar el mismo archivo si lo cambias
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 async function exportToPDF() {
     // 1. CONTROL DE VALIDACIÓN
