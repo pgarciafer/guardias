@@ -1871,38 +1871,44 @@ function importFromExcel(e) {
     reader.onload = (evt) => {
         const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
         
-        // 1. BUSCAR LA HOJA CORRECTA (Ignorando la hoja auxiliar Sheet1 de los desplegables)
+        // 1. BUSCAR LA HOJA CORRECTA (Ignora las hojas auxiliares)
         let worksheet = null;
+        let json = [];
         for (let i = 0; i < workbook.SheetNames.length; i++) {
             const ws = workbook.Sheets[workbook.SheetNames[i]];
-            const jsonTest = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
+            const jsonTest = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""}); // defval:"" respeta columnas vacías
             
-            // Verificamos si esta hoja es el Cuadrante buscando la cabecera "Empleado"
+            // Si la hoja tiene la cabecera "Empleado", es la buena
             if (jsonTest.length > 0 && jsonTest.some(r => r.some(c => String(c).toLowerCase().includes("empleado")))) {
                 worksheet = ws;
+                json = jsonTest;
                 break;
             }
         }
         
-        // Si por algún motivo no la encuentra, mostramos un error claro
         if (!worksheet) {
             alert("❌ Error: No se ha encontrado la tabla del cuadrante. Asegúrate de que existe la cabecera 'Empleado'.");
             return;
         }
-
-        const json = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
         
-        // 2. ENCONTRAR LA FILA EXACTA DE LOS ENCABEZADOS
+        // 2. BUSCAR DÓNDE ESTÁN LAS CABECERAS
         let headerRowIndex = json.findIndex(r => r.some(c => String(c).toLowerCase().includes("empleado")));
+        let headerRow = json[headerRowIndex];
+
+        // 3. MAPEADO INTELIGENTE (LA CLAVE ESTÁ AQUÍ)
+        // Buscamos en qué índice exacto están el Empleado y el Día 1
+        let empIndex = headerRow.findIndex(c => String(c).toLowerCase().includes("empleado"));
+        let day1Index = headerRow.findIndex(c => String(c).trim() === "1");
         
+        // Si no encuentra el "1", asumimos que está 6 posiciones a la derecha del Empleado
+        if (day1Index === -1) day1Index = empIndex + 6;
+
         const colorPalette = ["#45b7af", "#d9b3c1", "#c8bfe7", "#d1e2c4", "#4a69bd", "#ef4444", "#ccff00", "#00ffff", "#ff00ff", "#006400", "#e67e22", "#3498db", "#2ecc71", "#1abc9c", "#802020", "#b2a2a2", "#1e272e"];
         
-        // 3. PROCESAR LOS DATOS (Mapeo Estricto)
         json.slice(headerRowIndex + 1).forEach(r => {
-            const name = String(r[0] || "").trim(); // Columna A (0)
+            const name = String(r[empIndex] || "").trim(); 
             if(!name || name === "") return;
             
-            // Si el empleado no existe en el sistema, lo creamos
             if(!db[name]) {
                 const color = colorPalette[employeesData.length % colorPalette.length];
                 employeesData.push({name, color});
@@ -1912,22 +1918,19 @@ function importFromExcel(e) {
                 };
                 patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
             } else {
-                // Si existe, lo limpiamos para cargar los nuevos datos del mes
                 db[name].asignado = []; db[name].noDisp = []; db[name].prefs = []; db[name].asignadoManual = [];
             }
             
-            // --- DATOS FIJOS (Columnas B a F) ---
-            db[name].startingAccVP = parseInt(r[1]) || 0; // Columna B (1)
-            db[name].startingAccFF = parseInt(r[2]) || 0; // Columna C (2)
-            db[name].qTotal        = parseInt(r[3]) || 0; // Columna D (3)
-            db[name].qV            = parseInt(r[4]) || 0; // Columna E (4)
-            db[name].qF            = parseInt(r[5]) || 0; // Columna F (5)
+            // --- DATOS BASADOS EN LA POSICIÓN DEL EMPLEADO ---
+            db[name].startingAccVP = parseInt(r[empIndex + 1]) || 0; 
+            db[name].startingAccFF = parseInt(r[empIndex + 2]) || 0; 
+            db[name].qTotal        = parseInt(r[empIndex + 3]) || 0; 
+            db[name].qV            = parseInt(r[empIndex + 4]) || 0; 
+            db[name].qF            = parseInt(r[empIndex + 5]) || 0; 
             
-            // --- CUADRANTE DE DÍAS (Columna G en adelante) ---
-            // El Día 1 está en la columna G (índice 6). 
-            // Sumamos d + 5 para que cuadre exacto: Si d=1, r[1+5] = r[6]
+            // --- DÍAS BASADOS EN LA POSICIÓN EXACTA DEL "1" ---
             for(let d = 1; d <= 31; d++) {
-                let cellValue = r[d + 5]; 
+                let cellValue = r[day1Index + d - 1]; // Índice exacto de cada día
                 let v = String(cellValue || "").toUpperCase().trim();
                 
                 if(v === "G") { 
@@ -1940,13 +1943,12 @@ function importFromExcel(e) {
         });
         
         saveMonthState();
-        addLog("📥 Excel importado con éxito (Lectura estricta activada).");
+        addLog("📥 Excel importado con Mapeo Dinámico (Sin desfases).");
         updateView();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
-    e.target.value = ''; // Resetea el botón para permitir re-importar
+    e.target.value = ''; 
 }
-
 
 async function exportToPDF() {
     // 1. CONTROL DE VALIDACIÓN
