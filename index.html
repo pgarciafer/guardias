@@ -347,82 +347,88 @@ function init() {
 }
 
 // ============================================================
-// 3. MEMORIA Y ACUMULADOS
+// 3. MEMORIA Y ACUMULADOS (ACTUALIZADO PARA PLANTILLAS DINÁMICAS)
 // ============================================================
 function getMonthKey(date=currentDate) { return `${date.getFullYear()}-${date.getMonth()}`; }
 
 function saveMonthState() {
     const key = getMonthKey();
-    monthDataStore[key] = {holidays:[...manualHolidays], isValidated:isMonthValidated, employees:{}};
-    employeesData.forEach(e => {
-        if(!db[e.name]) return;
-        monthDataStore[key].employees[e.name] = {
-            noDisp:[...(db[e.name].noDisp||[])],
-            prefs:[...(db[e.name].prefs||[])],
-            asignado:[...(db[e.name].asignado||[])],
-            asignadoManual:[...(db[e.name].asignadoManual||[])],
-            startingAccVP:db[e.name].startingAccVP||0,
-            startingAccFF:db[e.name].startingAccFF||0,
-            qTotal:db[e.name].qTotal||0,
-            qV:db[e.name].qV||0,
-            qF:db[e.name].qF||0
-        };
-    });
+    monthDataStore[key] = {
+        holidays: [...manualHolidays], 
+        isValidated: isMonthValidated, 
+        // Guardamos una "fotografía" exacta de quiénes estaban este mes y sus datos
+        employeesList: JSON.parse(JSON.stringify(employeesData)),
+        dbData: JSON.parse(JSON.stringify(db))
+    };
+    
+    // (Opcional pero recomendado) Guardamos en el navegador para no perderlo al refrescar F5
+    localStorage.setItem('guardias_store', JSON.stringify(monthDataStore));
+    localStorage.setItem('guardias_memory', JSON.stringify(patternMemory));
 }
 
 function loadMonthState() {
+    // Intentamos recuperar datos guardados previamente en el navegador
+    const localStore = localStorage.getItem('guardias_store');
+    if (localStore && Object.keys(monthDataStore).length === 0) {
+        monthDataStore = JSON.parse(localStore);
+    }
+    const localMem = localStorage.getItem('guardias_memory');
+    if (localMem) patternMemory = JSON.parse(localMem);
+
     const key = getMonthKey();
     const saved = monthDataStore[key];
+
     if(saved) {
-        manualHolidays=[...(saved.holidays||[])];
-        isMonthValidated=saved.isValidated||false;
-        employeesData.forEach(e => {
-            const data=saved.employees[e.name];
-            db[e.name].noDisp=data?[...(data.noDisp||[])]:[];
-            db[e.name].prefs=data?[...(data.prefs||[])]:[];
-            db[e.name].asignado=data?[...(data.asignado||[])]:[];
-            db[e.name].asignadoManual=data?[...(data.asignadoManual||[])]:[];
-            db[e.name].startingAccVP=data?(data.startingAccVP||0):0;
-            db[e.name].startingAccFF=data?(data.startingAccFF||0):0;
-            db[e.name].qTotal=data?(data.qTotal||0):0;
-            db[e.name].qV=data?(data.qV||0):0;
-            db[e.name].qF=data?(data.qF||0):0;
-        });
+        // Si ya habíamos entrado en este mes antes, restauramos su "fotografía" exacta
+        manualHolidays = [...(saved.holidays||[])];
+        isMonthValidated = saved.isValidated||false;
+        employeesData = JSON.parse(JSON.stringify(saved.employeesList || []));
+        db = JSON.parse(JSON.stringify(saved.dbData || {}));
     } else {
-        manualHolidays=[];
-        isMonthValidated=false;
-        let prevDate=new Date(currentDate.getFullYear(),currentDate.getMonth()-1,1);
-        const prevKey=getMonthKey(prevDate);
-        const prevSaved=monthDataStore[prevKey];
-        employeesData.forEach(e => {
-            db[e.name].noDisp=[];db[e.name].prefs=[];db[e.name].asignado=[];db[e.name].asignadoManual=[];
-            if(prevSaved && prevSaved.isValidated) {
-                let workedFF=0,workedVP=0;
-                if(prevSaved.employees[e.name] && prevSaved.employees[e.name].asignado) {
-                    prevSaved.employees[e.name].asignado.forEach(d => {
-                        if(isFFContext(d,prevSaved.holidays||[],prevDate.getFullYear(),prevDate.getMonth())) workedFF++;
-                        else if(isVPContext(d,prevSaved.holidays||[],prevDate.getFullYear(),prevDate.getMonth())) workedVP++;
+        // Si es la primera vez que entramos a este mes, partimos de cero
+        manualHolidays = [];
+        isMonthValidated = false;
+        employeesData = [];
+        db = {};
+        
+        // Buscamos si hay un mes anterior para arrastrar los empleados y sus acumulados
+        let prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth()-1, 1);
+        const prevKey = getMonthKey(prevDate);
+        const prevSaved = monthDataStore[prevKey];
+        
+        if (prevSaved && prevSaved.employeesList) {
+            employeesData = JSON.parse(JSON.stringify(prevSaved.employeesList));
+            employeesData.forEach(e => {
+                db[e.name] = {
+                    name: e.name, color: e.color,
+                    noDisp: [], prefs: [], asignado: [], asignadoManual: [],
+                    qTotal: 0, qV: 0, qF: 0, startingAccVP: 0, startingAccFF: 0
+                };
+                
+                // Si el mes anterior está validado, arrastramos las guardias que hicieron
+                if (prevSaved.isValidated && prevSaved.dbData[e.name] && prevSaved.dbData[e.name].asignado) {
+                    let workedFF = 0, workedVP = 0;
+                    prevSaved.dbData[e.name].asignado.forEach(d => {
+                        if(isFFContext(d, prevSaved.holidays||[], prevDate.getFullYear(), prevDate.getMonth())) workedFF++;
+                        else if(isVPContext(d, prevSaved.holidays||[], prevDate.getFullYear(), prevDate.getMonth())) workedVP++;
                     });
-                    db[e.name].startingAccVP=(prevSaved.employees[e.name].startingAccVP||0)+workedVP;
-                    db[e.name].startingAccFF=(prevSaved.employees[e.name].startingAccFF||0)+workedFF;
+                    db[e.name].startingAccVP = (prevSaved.dbData[e.name].startingAccVP||0) + workedVP;
+                    db[e.name].startingAccFF = (prevSaved.dbData[e.name].startingAccFF||0) + workedFF;
+                } else if (prevSaved.dbData[e.name]) {
+                    db[e.name].startingAccVP = prevSaved.dbData[e.name].startingAccVP||0;
+                    db[e.name].startingAccFF = prevSaved.dbData[e.name].startingAccFF||0;
                 }
-            } else if(prevSaved && prevSaved.employees[e.name]) {
-                db[e.name].startingAccVP=prevSaved.employees[e.name].startingAccVP||0;
-                db[e.name].startingAccFF=prevSaved.employees[e.name].startingAccFF||0;
-            } else {
-                db[e.name].startingAccVP=0;
-                db[e.name].startingAccFF=0;
-            }
-        });
+            });
+        }
     }
-    lastManualAction={name:null,day:null};
+    lastManualAction = {name:null, day:null};
 }
 
 function changeMonth(o) {
-    saveMonthState();
-    currentDate.setMonth(currentDate.getMonth()+o);
-    loadMonthState();
-    updateView();
+    saveMonthState(); // Guardamos el mes actual antes de irnos
+    currentDate.setMonth(currentDate.getMonth()+o); // Cambiamos la fecha
+    loadMonthState(); // Cargamos la foto del nuevo mes
+    updateView(); // Refrescamos la pantalla
 }
 
 // ============================================================
