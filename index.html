@@ -6,6 +6,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <style>
         :root {
             --primary:#3b82f6;--primary-light:#dbeafe;--bg:#f0f4ff;
@@ -1747,43 +1748,161 @@ function clearAssignment(){
     }
 }
 
-function exportToExcel() {
-    const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+async function exportToExcel() {
     const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase().replace(" ", "_");
-    
-    const rows = [["Empleado","AccVP","AccFF","Obj","Obj V","Obj F", ...Array.from({length:dInM},(_,i)=>i+1)]];
-    
-    employeesData.forEach(e => {
-        const targetData = isManualMode ? db[e.name].asignadoManual : db[e.name].asignado;
-        let r = [e.name, db[e.name].startingAccVP, db[e.name].startingAccFF, db[e.name].qTotal, db[e.name].qV, db[e.name].qF];
-        for(let d=1; d<=dInM; d++) {
-            if(targetData.includes(d)) r.push("G");
-            else if(db[e.name].noDisp.includes(d)) r.push("X");
-            else if(db[e.name].prefs.includes(d)) r.push("P");
-            else r.push("");
+    addLog("Generando Tabla Oficial con Totales Asignados...");
+
+    try {
+        if (typeof ExcelJS === 'undefined') throw new Error("La librería ExcelJS no está cargada en el <head>.");
+
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Cuadrante');
+
+        const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+
+        // 1. DEFINICIÓN DE ENCABEZADOS (Fijos hasta la Columna 40 = AN)
+        const headerNames = ["Empleado", "Acc Visp", "Acc Fest", "Obj Total", "Obj Visp", "Obj Fest"]; // A-F
+        for (let d = 1; d <= 31; d++) headerNames.push(d.toString()); // G-AK (Forzamos 31 columnas siempre)
+        
+        // Nuestras nuevas columnas de totales (AL, AM, AN)
+        headerNames.push("Total Asignado", "Total Visp", "Total Fest"); 
+
+        // 2. PREPARACIÓN DE LOS DATOS Y CÁLCULO DE TOTALES
+        const rows = employeesData.map(e => {
+            const targetData = isManualMode ? db[e.name].asignadoManual : db[e.name].asignado;
+            const row = [
+                e.name,
+                db[e.name].startingAccVP || 0,
+                db[e.name].startingAccFF || 0,
+                db[e.name].qTotal || 0,
+                db[e.name].qV || 0,
+                db[e.name].qF || 0
+            ];
+
+            let tG = 0, tV = 0, tF = 0; // Contadores para este mes
+
+            for (let d = 1; d <= 31; d++) {
+                if (d <= dInM) {
+                    if (targetData && targetData.includes(d)) {
+                        row.push("G");
+                        tG++; // Sumamos 1 guardia total
+                        if (isFF(d)) tF++; // Es festivo
+                        else if (isVP(d)) tV++; // Es víspera
+                    } 
+                    else if (db[e.name].noDisp && db[e.name].noDisp.includes(d)) row.push("X");
+                    else if (db[e.name].prefs && db[e.name].prefs.includes(d)) row.push("P");
+                    else row.push("");
+                } else {
+                    row.push(""); // Si el mes tiene 28, 29 o 30 días, dejamos las celdas en blanco
+                }
+            }
+
+            // Añadimos los totales calculados al final de la fila
+            row.push(tG, tV, tF);
+            return row;
+        });
+
+        // 3. CREACIÓN DE LA TABLA
+        ws.addTable({
+            name: 'CuadranteOficial',
+            ref: 'A1',
+            headerRow: true,
+            style: { theme: 'TableStyleMedium9', showRowStripes: true },
+            columns: headerNames.map(name => ({ name })),
+            rows: rows,
+        });
+
+        // 4. APLICACIÓN DE BORDES A TODA LA CUADRÍCULA
+        const totalRows = rows.length + 1;
+        const totalCols = headerNames.length;
+
+        for (let i = 1; i <= totalRows; i++) {
+            const row = ws.getRow(i);
+            for (let j = 1; j <= totalCols; j++) {
+                const cell = row.getCell(j);
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+                };
+                if (j > 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
         }
-        rows.push(r);
-    });
-    
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Cuadrante");
-    XLSX.writeFile(wb, `Planificador_PRO_${monthYear}.xlsx`);
+
+        // 5. REGLAS DE FORMATO CONDICIONAL (Para las columnas G hasta AK)
+        const rangeDays = `G2:AK${totalRows}`;
+        ws.addConditionalFormatting({
+            ref: rangeDays,
+            rules: [
+                { type: 'cellIs', operator: 'equal', formulae: ['"G"'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFC6EFCE' } }, font: { color: { argb: 'FF006100' }, bold: true } } },
+                { type: 'cellIs', operator: 'equal', formulae: ['"X"'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFC7CE' } }, font: { color: { argb: 'FF9C0006' }, bold: true } } },
+                { type: 'cellIs', operator: 'equal', formulae: ['"P"'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFEB9C' } }, font: { color: { argb: 'FF9C6500' }, bold: true } } }
+            ]
+        });
+
+        // 6. AJUSTE PERFECTO DE ANCHOS DE COLUMNA
+        ws.getColumn(1).width = 18; // Empleado
+        for (let i = 2; i <= 6; i++) ws.getColumn(i).width = 10; // Acumulados y Objetivos
+        for (let i = 7; i <= 37; i++) ws.getColumn(i).width = 4.5; // Días (G a AK)
+        for (let i = 38; i <= 40; i++) { // AL, AM y AN (Totales Asignados)
+            ws.getColumn(i).width = 14; 
+            ws.getColumn(i).font = { bold: true }; // Ponemos los totales en negrita
+        }
+
+        // 7. EXPORTACIÓN
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Planificador_PRO_${monthYear}.xlsx`;
+        link.click();
+
+        addLog("✅ Excel exportado correctamente con los totales del mes incluidos.");
+
+    } catch (error) {
+        console.error("Error en exportToExcel:", error);
+        addLog("❌ Error: " + error.message);
+    }
 }
 
 function importFromExcel(e) {
     const reader = new FileReader();
     reader.onload = (evt) => {
-        const json = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(evt.target.result), {type: 'array'}).Sheets[XLSX.read(new Uint8Array(evt.target.result), {type: 'array'}).SheetNames[0]], {header: 1});
-        let start = json.findIndex(r => r[0] === "Empleado");
-        if(start === -1) return alert("Formato no válido. Asegúrate de que la primera celda sea 'Empleado'.");
+        const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+        
+        // 1. BUSCAR LA HOJA CORRECTA (Ignorando la hoja auxiliar Sheet1 de los desplegables)
+        let worksheet = null;
+        for (let i = 0; i < workbook.SheetNames.length; i++) {
+            const ws = workbook.Sheets[workbook.SheetNames[i]];
+            const jsonTest = XLSX.utils.sheet_to_json(ws, {header: 1, defval: ""});
+            
+            // Verificamos si esta hoja es el Cuadrante buscando la cabecera "Empleado"
+            if (jsonTest.length > 0 && jsonTest.some(r => r.some(c => String(c).toLowerCase().includes("empleado")))) {
+                worksheet = ws;
+                break;
+            }
+        }
+        
+        // Si por algún motivo no la encuentra, mostramos un error claro
+        if (!worksheet) {
+            alert("❌ Error: No se ha encontrado la tabla del cuadrante. Asegúrate de que existe la cabecera 'Empleado'.");
+            return;
+        }
+
+        const json = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+        
+        // 2. ENCONTRAR LA FILA EXACTA DE LOS ENCABEZADOS
+        let headerRowIndex = json.findIndex(r => r.some(c => String(c).toLowerCase().includes("empleado")));
         
         const colorPalette = ["#45b7af", "#d9b3c1", "#c8bfe7", "#d1e2c4", "#4a69bd", "#ef4444", "#ccff00", "#00ffff", "#ff00ff", "#006400", "#e67e22", "#3498db", "#2ecc71", "#1abc9c", "#802020", "#b2a2a2", "#1e272e"];
         
-        json.slice(start+1).forEach(r => {
-            const name = r[0];
-            if(!name) return;
+        // 3. PROCESAR LOS DATOS (Mapeo Estricto)
+        json.slice(headerRowIndex + 1).forEach(r => {
+            const name = String(r[0] || "").trim(); // Columna A (0)
+            if(!name || name === "") return;
             
+            // Si el empleado no existe en el sistema, lo creamos
             if(!db[name]) {
                 const color = colorPalette[employeesData.length % colorPalette.length];
                 employeesData.push({name, color});
@@ -1793,32 +1912,41 @@ function importFromExcel(e) {
                 };
                 patternMemory[name] = {totalFF:0, totalVP:0, totalN:0, months:0};
             } else {
+                // Si existe, lo limpiamos para cargar los nuevos datos del mes
                 db[name].asignado = []; db[name].noDisp = []; db[name].prefs = []; db[name].asignadoManual = [];
             }
             
-            // --- NUEVA ESTRUCTURA DE COLUMNAS ---
-            db[name].startingAccVP = isNaN(parseInt(r[1])) ? 0 : parseInt(r[1]); // Col B
-            db[name].startingAccFF = isNaN(parseInt(r[2])) ? 0 : parseInt(r[2]); // Col C
-            db[name].qTotal = isNaN(parseInt(r[3])) ? 0 : parseInt(r[3]);        // Col D
-            db[name].qV = isNaN(parseInt(r[4])) ? 0 : parseInt(r[4]);            // Col E (Vísperas)
-            db[name].qF = isNaN(parseInt(r[5])) ? 0 : parseInt(r[5]);            // Col F (Festivos)
+            // --- DATOS FIJOS (Columnas B a F) ---
+            db[name].startingAccVP = parseInt(r[1]) || 0; // Columna B (1)
+            db[name].startingAccFF = parseInt(r[2]) || 0; // Columna C (2)
+            db[name].qTotal        = parseInt(r[3]) || 0; // Columna D (3)
+            db[name].qV            = parseInt(r[4]) || 0; // Columna E (4)
+            db[name].qF            = parseInt(r[5]) || 0; // Columna F (5)
             
-            // Los días empiezan en la Col G (índice 6). Si d=1, r[1+5] = r[6]
-            for(let d=1; d<=31; d++) {
-                let v = r[d+5]?.toString().toUpperCase(); 
-                if(v === "G") { db[name].asignado.push(d); db[name].asignadoManual.push(d); }
-                if(v === "X") db[name].noDisp.push(d);
-                if(v === "P") db[name].prefs.push(d);
+            // --- CUADRANTE DE DÍAS (Columna G en adelante) ---
+            // El Día 1 está en la columna G (índice 6). 
+            // Sumamos d + 5 para que cuadre exacto: Si d=1, r[1+5] = r[6]
+            for(let d = 1; d <= 31; d++) {
+                let cellValue = r[d + 5]; 
+                let v = String(cellValue || "").toUpperCase().trim();
+                
+                if(v === "G") { 
+                    db[name].asignado.push(d); 
+                    db[name].asignadoManual.push(d); 
+                }
+                else if(v === "X") db[name].noDisp.push(d);
+                else if(v === "P") db[name].prefs.push(d);
             }
         });
         
         saveMonthState();
-        addLog("📥 Excel importado con éxito. Objetivos V/F actualizados.");
+        addLog("📥 Excel importado con éxito (Lectura estricta activada).");
         updateView();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
-    e.target.value = ''; 
+    e.target.value = ''; // Resetea el botón para permitir re-importar
 }
+
 
 async function exportToPDF() {
     // 1. CONTROL DE VALIDACIÓN
