@@ -1411,7 +1411,7 @@ function showParetoAnalysis() {
 function closeParetoModal(){document.getElementById('modalPareto').style.display='none';}
 
 // ============================================================
-// 18. RENDERIZADO VISUAL
+// 18. RENDERIZADO VISUAL (VERSIÓN COMPLETA Y CORREGIDA)
 // ============================================================
 function renderOutput() {
     const y = currentDate.getFullYear(), m = currentDate.getMonth();
@@ -1491,7 +1491,7 @@ function renderOutput() {
     }).join('');
     if(tableAuto) tableAuto.innerHTML = th + tbAuto;
 
-	// --- 3.5 ALERTAS DE COBERTURA AUTOMÁTICA ---
+    // --- 3.5 ALERTAS DE COBERTURA AUTOMÁTICA ---
     let conflict = false;
     for (let d = 1; d <= dInM; d++) {
         if (countInDay(d) > 2) conflict = true;
@@ -1501,7 +1501,7 @@ function renderOutput() {
         alertBoxAuto.style.display = conflict ? 'flex' : 'none';
     }
 
-    // --- 4. TABLA MANUAL Y AUDITORÍA ---
+    // --- 4. TABLA MANUAL Y AUDITORÍA COMPLETA ---
     if (isManualMode) {
         const tableManual = document.getElementById('matrixTableManual');
         let tbMan = employeesData.map(e => {
@@ -1529,7 +1529,7 @@ function renderOutput() {
         }).join('');
         if(tableManual) tableManual.innerHTML = th + tbMan;
 
-        // Lógica de avisos manuales (cobertura, descansos, etc.)
+        // --- SISTEMA DE AUDITORÍA MANUAL ---
         let warnings = [];
         for (let d = 1; d <= dInM; d++) {
             let workers = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).map(e => e.name);
@@ -1537,30 +1537,70 @@ function renderOutput() {
             if (workers.length < 2) warnings.push(`Día ${d}: Falta personal (${workers.length}/2).`);
             if (workers.includes("Oscar") && workers.includes("Gema")) warnings.push(`Día ${d}: Oscar y Gema asignados juntos.`);
         }
-        // ... (resto de lógica de advertencias de 48h y parejas)
+
+        employeesData.forEach(e => {
+            let myDays = db[e.name].asignadoManual || [];
+            myDays.forEach(d => {
+                if (db[e.name].noDisp && db[e.name].noDisp.includes(d)) 
+                    warnings.push(`<b>${e.name}</b>: Guardia el día ${d} pero tenía Indisponibilidad (X).`);
+                
+                if (myDays.includes(d + 1)) 
+                    warnings.push(`<b>${e.name}</b>: Doblete detectado (días ${d} y ${d + 1}).`);
+                
+                if (myDays.includes(d + 2)) 
+                    warnings.push(`<b>${e.name}</b>: Descanso de 48h insuficiente (días ${d} y ${d + 2}).`);
+                
+                let date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
+                if (date.getDay() === 1 && myDays.includes(d - 2)) 
+                    warnings.push(`<b>${e.name}</b>: Lunes ${d} asignado tras trabajar el Sábado ${d - 2}.`);
+                if (date.getDay() === 6 && myDays.includes(d + 2)) 
+                    warnings.push(`<b>${e.name}</b>: Sábado ${d} asignado trabajando el Lunes ${d + 2}.`);
+            });
+        });
+
+        let oscarDays = db["Oscar"] ? db["Oscar"].asignadoManual : [];
+        let gemaDays = db["Gema"] ? db["Gema"].asignadoManual : [];
+        oscarDays.forEach(d => {
+            if (gemaDays.includes(d + 1)) warnings.push(`Oscar (día ${d}) y Gema (día ${d+1}) en días consecutivos.`);
+            if (gemaDays.includes(d - 1)) warnings.push(`Gema (día ${d-1}) y Oscar (día ${d}) en días consecutivos.`);
+        });
+
         warnings = [...new Set(warnings)];
-        const alertBox = document.getElementById('conflictAlertManual');
-        const list = document.getElementById('manualWarningsList');
-        if (alertBox && list) {
-            alertBox.style.display = warnings.length > 0 ? 'block' : 'none';
-            list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+        const alertBoxM = document.getElementById('conflictAlertManual');
+        const listM = document.getElementById('manualWarningsList');
+        if (alertBoxM && listM) {
+            alertBoxM.style.display = warnings.length > 0 ? 'block' : 'none';
+            listM.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
         }
     }
 
-    // --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (ACTUALIZADO) ---
+    // --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (RESETEO INTELIGENTE) ---
     const pageAuto = document.getElementById('pdf-page-2');
     const pageManual = document.getElementById('pdf-page-manual');
     const btnValA = document.getElementById('btn-validate-auto');
     const btnValM = document.getElementById('btn-validate-manual');
     const badgeA = document.getElementById('status-validated-auto');
+    const btnGenerar = document.getElementById('btn-generar');
 
     if (isMonthValidated) {
-        pageAuto.style.display = 'block';
-        pageManual.style.display = 'none';
+        if(btnGenerar) btnGenerar.style.display = 'none';
+
+        if (db.validatedMode === 'manual') {
+            pageAuto.style.display = 'none';
+            pageManual.style.display = 'block';
+            pageManual.classList.remove('hidden');
+            if(btnValM) btnValM.style.display = 'none';
+            // Ocultamos la botonera de acciones manuales (Autocompletar, etc)
+            const manualActions = pageManual.querySelector('div[style*="display:flex;gap:8px"]');
+            if(manualActions) manualActions.style.display = 'none';
+        } else {
+            pageAuto.style.display = 'block';
+            pageManual.style.display = 'none';
+            if(btnValA) btnValA.style.display = 'none';
+        }
         if (badgeA) badgeA.style.display = 'inline-block';
-        if (btnValA) btnValA.style.display = 'none';
-        if (btnValM) btnValM.style.display = 'none';
     } else {
+        if(btnGenerar) btnGenerar.style.display = 'inline-block';
         pageAuto.style.display = 'block';
         if (badgeA) badgeA.style.display = 'none';
         if (btnValA) btnValA.style.display = 'inline-block';
@@ -1569,15 +1609,15 @@ function renderOutput() {
         if (isManualMode) {
             pageManual.style.display = 'block';
             pageManual.classList.remove('hidden');
+            const manualActions = pageManual.querySelector('div[style*="display:flex;gap:8px"]');
+            if(manualActions) manualActions.style.display = 'flex';
         } else {
             pageManual.style.display = 'none';
-            pageManual.classList.add('hidden');
         }
     }
 
     if (typeof renderEmployees === "function") renderEmployees();
 }
-
 
 // ============================================================
 // 19. GESTIÓN EMPLEADOS
