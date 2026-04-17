@@ -165,7 +165,7 @@
     <button class="btn-header btn-excel" onclick="exportToExcel()">📤 Descargar Cuadrante Excel</button>
     <button class="btn-header btn-pdf" onclick="exportToPDF()">🖨️ PDF</button>
     
-    <button class="btn-header btn-clear" onclick="clearAssignment()">🗑️ Limpiar</button>
+    <button id="btn-limpiar" class="btn-header btn-clear" onclick="clearAssignment()">🗑️ Limpiar</button>
 	<button class="btn-header" style="background:#dc2626; color:white; border:none;" onclick="if(confirm('🚨 ¿Borrar toda la memoria y resetear la app de fábrica?')){ localStorage.clear(); location.reload(); }">☢️ Reset Total</button>
     <button id="btn-generar" class="btn-header btn-auto" onclick="generatePro()">🚀 Generar PRO</button>
 </div>
@@ -212,7 +212,7 @@
                     <h3 style="margin:0 0 4px 0;font-size:1rem;color:var(--danger);">🛠️ Cuadrante Libre Manual</h3>
                     <span style="font-size:.75rem;color:#64748b;">Copia del automático. Haz clic en las celdas para reasignar sin bloqueos. Auditoría visual activa.</span>
                 </div>
-                <div style="display:flex;gap:8px;">
+                <div id="manualActionButtons" style="display:flex;gap:8px;">
 					<button id="btn-validate-manual" style="background:var(--success);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="validarCuadrante('manual')">✅ Validar MANUAL</button>
 					
 					<button style="background:var(--primary);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="autoCompleteManual()">🪄 Autocompletar</button>
@@ -1410,7 +1410,7 @@ function showParetoAnalysis() {
 function closeParetoModal(){document.getElementById('modalPareto').style.display='none';}
 
 // ============================================================
-// 18. RENDERIZADO VISUAL (VERSIÓN COMPLETA Y CORREGIDA)
+// 18. RENDERIZADO VISUAL
 // ============================================================
 function renderOutput() {
     const y = currentDate.getFullYear(), m = currentDate.getMonth();
@@ -1573,8 +1573,8 @@ function renderOutput() {
         }
     }
 
-    // --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (RESETEO INTELIGENTE) ---
-	const btnManualToggle = document.getElementById('btn-manual-mode');
+// --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (RESETEO INTELIGENTE Y DESBLOQUEO) ---
+    const btnManualToggle = document.getElementById('btn-manual-mode');
     if(btnManualToggle) {
         if(isManualMode) {
             btnManualToggle.classList.add('active');
@@ -1584,23 +1584,35 @@ function renderOutput() {
             btnManualToggle.innerText = "🛠️ Activar Manual (Clonar)";
         }
     }
+
     const pageAuto = document.getElementById('pdf-page-2');
     const pageManual = document.getElementById('pdf-page-manual');
     const btnValA = document.getElementById('btn-validate-auto');
     const btnValM = document.getElementById('btn-validate-manual');
     const badgeA = document.getElementById('status-validated-auto');
     const btnGenerar = document.getElementById('btn-generar');
+    const btnLimpiar = document.getElementById('btn-limpiar'); 
+    const manualActions = document.getElementById('manualActionButtons'); // <-- Búsqueda directa y segura por ID
 
     if (isMonthValidated) {
         if(btnGenerar) btnGenerar.style.display = 'none';
+
+        if(btnLimpiar) {
+            btnLimpiar.innerHTML = "🔓 Desbloquear";
+            btnLimpiar.classList.remove('btn-clear');
+            btnLimpiar.style.background = "#64748b";
+            btnLimpiar.style.color = "white";
+            btnLimpiar.style.borderColor = "#64748b";
+            btnLimpiar.onclick = unlockMonth;
+        }
 
         if (db.validatedMode === 'manual') {
             pageAuto.style.display = 'none';
             pageManual.style.display = 'block';
             pageManual.classList.remove('hidden');
             if(btnValM) btnValM.style.display = 'none';
-            // Ocultamos la botonera de acciones manuales (Autocompletar, etc)
-            const manualActions = pageManual.querySelector('div[style*="display:flex;gap:8px"]');
+            
+            // Ocultamos la botonera de acciones manuales con total seguridad
             if(manualActions) manualActions.style.display = 'none';
         } else {
             pageAuto.style.display = 'block';
@@ -1610,6 +1622,16 @@ function renderOutput() {
         if (badgeA) badgeA.style.display = 'inline-block';
     } else {
         if(btnGenerar) btnGenerar.style.display = 'inline-block';
+        
+        if(btnLimpiar) {
+            btnLimpiar.innerHTML = "🗑️ Limpiar";
+            btnLimpiar.classList.add('btn-clear');
+            btnLimpiar.style.background = "white";
+            btnLimpiar.style.color = "var(--danger)";
+            btnLimpiar.style.borderColor = "var(--danger)";
+            btnLimpiar.onclick = clearAssignment;
+        }
+
         pageAuto.style.display = 'block';
         if (badgeA) badgeA.style.display = 'none';
         if (btnValA) btnValA.style.display = 'inline-block';
@@ -1618,7 +1640,8 @@ function renderOutput() {
         if (isManualMode) {
             pageManual.style.display = 'block';
             pageManual.classList.remove('hidden');
-            const manualActions = pageManual.querySelector('div[style*="display:flex;gap:8px"]');
+            
+            // Volvemos a mostrar la botonera al desbloquear
             if(manualActions) manualActions.style.display = 'flex';
         } else {
             pageManual.style.display = 'none';
@@ -1627,7 +1650,6 @@ function renderOutput() {
 
     if (typeof renderEmployees === "function") renderEmployees();
 }
-
 // ============================================================
 // 19. GESTIÓN EMPLEADOS
 // ============================================================
@@ -1880,6 +1902,18 @@ function updateView(){
 // ============================================================
 // 20. LIMPIEZA Y EXPORTACIÓN
 // ============================================================
+
+function unlockMonth() {
+    if (!confirm("🔓 ¿Deseas desbloquear este mes para realizar cambios?\n\nRecuerda que al volver a validar se actualizarán de nuevo los acumulados históricos.")) return;
+    
+    isMonthValidated = false;
+    db.validatedMode = null; // Reseteamos el modo ganador
+    
+    saveMonthState();
+    updateView();
+    addLog(`🔓 Mes DESBLOQUEADO para edición.`);
+}
+
 function clearAssignment(){
     if(isMonthValidated) return alert("Mes validado y cerrado. No se puede limpiar.");
     if(confirm("¿Borrar asignaciones del mes?")){
