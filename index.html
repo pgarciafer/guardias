@@ -355,21 +355,20 @@ function getMonthKey(date=currentDate) { return `${date.getFullYear()}-${date.ge
 
 function saveMonthState() {
     const key = getMonthKey();
-    // Guardamos absolutamente todo lo referente a este mes en su "cajita"
     monthDataStore[key] = {
         holidays: [...manualHolidays], 
         isValidated: isMonthValidated, 
-        employees: JSON.parse(JSON.stringify(employeesData)), // Fotografía de la lista de empleados
-        db: JSON.parse(JSON.stringify(db))                    // Fotografía de sus turnos y objetivos
+        validatedMode: db.validatedMode,
+        isManualMode: isManualMode, // <--- AHORA GUARDAMOS SI EL MODO MANUAL ESTABA ACTIVO
+        employees: JSON.parse(JSON.stringify(employeesData)),
+        db: JSON.parse(JSON.stringify(db))
     };
     
-    // Guardamos también en el navegador para que no se borre al cerrar
     localStorage.setItem('planificador_data', JSON.stringify(monthDataStore));
     localStorage.setItem('planificador_memory', JSON.stringify(patternMemory));
 }
 
 function loadMonthState() {
-    // Intentamos recuperar de la memoria del navegador si el programa se acaba de abrir
     if (Object.keys(monthDataStore).length === 0) {
         const savedData = localStorage.getItem('planificador_data');
         if (savedData) monthDataStore = JSON.parse(savedData);
@@ -381,22 +380,22 @@ function loadMonthState() {
     const saved = monthDataStore[key];
 
     if (saved) {
-        // Si el mes tiene datos guardados, los restauramos
         manualHolidays = [...(saved.holidays || [])];
         isMonthValidated = saved.isValidated || false;
-        employeesData = JSON.parse(JSON.stringify(saved.employees || []));
-        db = JSON.parse(JSON.stringify(saved.db || {}));
+        db.validatedMode = saved.validatedMode || 'auto';
+        isManualMode = saved.isManualMode || false; // <--- CARGAMOS EL ESTADO DEL MODO MANUAL
+        employeesData = JSON.parse(saved.employees ? JSON.stringify(saved.employees) : "[]");
+        db = JSON.parse(saved.db ? JSON.stringify(saved.db) : "{}");
     } else {
-        // --- LA CLAVE: SI EL MES ES NUEVO, APARECE VACÍO ---
         manualHolidays = [];
         isMonthValidated = false;
-        employeesData = []; // Vaciamos la lista de empleados
-        db = {};            // Vaciamos la base de datos
-        
-        addLog(`📅 Mes nuevo: ${document.getElementById('monthDisplay').innerText} aparece vacío.`);
+        db.validatedMode = null;
+        isManualMode = false; // <--- POR DEFECTO, LOS MESES NUEVOS EMPIEZAN EN MODO AUTO
+        employeesData = [];
+        db = {};
     }
-    lastManualAction = { name: null, day: null };
 }
+
 
 function changeMonth(o) {
     saveMonthState(); // 1. Guardamos el mes en el que estamos antes de salir
@@ -1575,6 +1574,16 @@ function renderOutput() {
     }
 
     // --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (RESETEO INTELIGENTE) ---
+	const btnManualToggle = document.getElementById('btn-manual-mode');
+    if(btnManualToggle) {
+        if(isManualMode) {
+            btnManualToggle.classList.add('active');
+            btnManualToggle.innerText = "🛠️ Ocultar Manual";
+        } else {
+            btnManualToggle.classList.remove('active');
+            btnManualToggle.innerText = "🛠️ Activar Manual (Clonar)";
+        }
+    }
     const pageAuto = document.getElementById('pdf-page-2');
     const pageManual = document.getElementById('pdf-page-manual');
     const btnValA = document.getElementById('btn-validate-auto');
@@ -1693,11 +1702,71 @@ function saveEditEmployee() {
 }
 
 function renderEmployees() {
-    document.getElementById('employeeList').innerHTML = employeesData.map(e => {
+    const listContainer = document.getElementById('employeeList');
+    if (!listContainer) return;
+
+    // --- MAGIA: CÁLCULO DINÁMICO DE MEMORIA (Viaje en el tiempo) ---
+    // Copiamos la misma lógica que usamos en la pestaña Memoria para que coincidan al 100%
+    let dynamicMemory = {};
+    employeesData.forEach(e => { dynamicMemory[e.name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0 }; });
+
+    const currentKey = getMonthKey(currentDate);
+    const [curY, curM] = currentKey.split('-').map(Number);
+
+    // 1. Sumar meses ANTERIORES validados
+    Object.keys(monthDataStore).forEach(k => {
+        const [y, m] = k.split('-').map(Number);
+        if (y < curY || (y === curY && m < curM)) {
+            const mData = monthDataStore[k];
+            if (mData.isValidated) {
+                const dbM = mData.db || {};
+                const hol = mData.holidays || [];
+                Object.keys(dbM).forEach(empName => {
+                    if (dbM[empName].asignado && dynamicMemory[empName]) {
+                        let ff = 0, vp = 0, n = 0;
+                        dbM[empName].asignado.forEach(d => {
+                            if (isFFContext(d, hol, y, m)) ff++;
+                            else if (isVPContext(d, hol, y, m)) vp++;
+                            else n++;
+                        });
+                        dynamicMemory[empName].totalFF += ff;
+                        dynamicMemory[empName].totalVP += vp;
+                        dynamicMemory[empName].totalN += n;
+                        dynamicMemory[empName].months += 1;
+                    }
+                });
+            }
+        }
+    });
+
+    // 2. Sumar el mes ACTUAL en vivo
+    const target = isManualMode ? 'asignadoManual' : 'asignado';
+    employeesData.forEach(e => {
+        if (db[e.name] && db[e.name][target]) {
+            let ff = 0, vp = 0, n = 0;
+            db[e.name][target].forEach(d => {
+                if (isFF(d)) ff++;
+                else if (isVP(d)) vp++;
+                else n++;
+            });
+            dynamicMemory[e.name].totalFF += ff;
+            dynamicMemory[e.name].totalVP += vp;
+            dynamicMemory[e.name].totalN += n;
+            dynamicMemory[e.name].months += 1;
+        }
+    });
+    // -------------------------------------------------------------
+
+    // Renderizamos las tarjetas usando la memoria dinámica calculada
+    listContainer.innerHTML = employeesData.map(e => {
         let curFF = 0, curVP = 0;
-        const dataT = isManualMode ? 'asignadoManual' : 'asignado';
-        if (db[e.name][dataT]) { db[e.name][dataT].forEach(d => { if (isFF(d)) curFF++; else if (isVP(d)) curVP++; }); }
-        const mem = patternMemory[e.name] || { totalFF: 0, totalVP: 0, totalN: 0, months: 0 };
+        if (db[e.name][target]) { 
+            db[e.name][target].forEach(d => { if (isFF(d)) curFF++; else if (isVP(d)) curVP++; }); 
+        }
+        
+        // ¡Aquí está el cambio! Usamos dynamicMemory en lugar de patternMemory
+        const mem = dynamicMemory[e.name]; 
+
         return `
         <div class="emp-card" style="--emp-color:${e.color}">
             
@@ -1712,17 +1781,18 @@ function renderEmployees() {
                 </div>
             </div>
 
-            <div class="section-title">Acumulado hasta (${document.getElementById('monthDisplay').innerText})</div>
+            <div class="section-title">Acumulado en ${document.getElementById('monthDisplay').innerText}</div>
             <div class="input-group grid-2">
                 <div class="input-field"><label>Visperas Total</label><input type="text" value="${(db[e.name].startingAccVP || 0) + curVP}" disabled style="background:#e2e8f0;color:#333;"></div>
                 <div class="input-field"><label>Festivos Total</label><input type="text" value="${(db[e.name].startingAccFF || 0) + curFF}" disabled style="background:#e2e8f0;color:#333;"></div>
             </div>
             
-            <div class="section-title">🧠 Memoria Histórica (${mem.months} meses)</div>
+            <div class="section-title">🧠 Memoria Histórica (${mem.months} meses) RECUERDA VALIDAR CUADRANTES</div>
             <div class="input-group" style="grid-template-columns:repeat(3,1fr);font-size:.68rem;">
+			<div class="input-field"><label>Visperas Hist.</label><input type="text" value="${mem.totalVP}" disabled style="background:#dbeafe;color:#1e40af;"></div>
                 <div class="input-field"><label>Festivos Hist.</label><input type="text" value="${mem.totalFF}" disabled style="background:#fef3c7;color:#92400e;"></div>
-                <div class="input-field"><label>Visperas Hist.</label><input type="text" value="${mem.totalVP}" disabled style="background:#dbeafe;color:#1e40af;"></div>
-                <div class="input-field"><label>Normal Hist.</label><input type="text" value="${mem.totalN}" disabled style="background:#f0fdf4;color:#166534;"></div>
+                
+                <div class="input-field"><label>L-J Hist.</label><input type="text" value="${mem.totalN}" disabled style="background:#f0fdf4;color:#166534;"></div>
             </div>
             
             <div class="section-title">Objetivos Mensuales</div>
@@ -1739,6 +1809,7 @@ function renderEmployees() {
         </div>`;
     }).join('');
 }
+
 
 function openModal(n,m){curEmp=n;curMode=m;document.getElementById('modal').style.display='flex';document.getElementById('modalName').innerText=n;document.getElementById('modalDesc').innerText=m==='NO'?'Marcar LIBRANZAS (Rojo)':'Marcar PETICIONES (Azul)';renderPicker();}
 function closeModal(){document.getElementById('modal').style.display='none';renderOutput();}
