@@ -175,8 +175,9 @@
     <div class="tab-nav">
         <button id="btn-tab-cal" class="tab-btn active" onclick="showTab('calendario')">📅 Cuadrante</button>
         <button id="btn-tab-beam" class="tab-btn" onclick="showTab('beam')" style="display: none;">🔬 Beam Search</button>
-        <button id="btn-tab-memory" class="tab-btn" onclick="showTab('memory')">🧠 Memoria</button>
         <button id="btn-tab-emp" class="tab-btn" onclick="showTab('empleados')">👥 Empleados</button>
+        <button id="btn-tab-memory" class="tab-btn" onclick="showTab('memory')">🧠 Memoria</button>
+        
     </div>
 
     <div id="tab-calendario">
@@ -1166,37 +1167,43 @@ function renderScoreChart() {
 }
 
 // ============================================================
-// 15. RENDER MEMORY TAB
-// ============================================================
-// ============================================================
-// 15. RENDER MEMORY TAB (DINÁMICA HASTA EL MES ACTUAL)
+// 15. RENDER MEMORY TAB (TODOS LOS EMPLEADOS HISTÓRICOS)
 // ============================================================
 function renderMemoryTab() {
     const heatmap = document.getElementById('memoryHeatmap');
     const histTable = document.getElementById('historyTable');
     if(!heatmap || !histTable) return;
 
-    // --- MAGIA: CÁLCULO DINÁMICO DE MEMORIA (Viaje en el tiempo) ---
+    // --- CÁLCULO DINÁMICO DE MEMORIA (INCLUYENDO EMPLEADOS INACTIVOS) ---
     let dynamicMemory = {};
-    employeesData.forEach(e => { dynamicMemory[e.name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0 }; });
+    
+    // 1. Añadimos primero a los empleados activos de la plantilla de este mes
+    employeesData.forEach(e => { 
+        dynamicMemory[e.name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0, isActive: true }; 
+    });
 
     const currentKey = getMonthKey(currentDate);
     const [curY, curM] = currentKey.split('-').map(Number);
 
-    // 1. Sumar meses ANTERIORES validados
+    // 2. Sumar meses ANTERIORES validados
     Object.keys(monthDataStore).forEach(k => {
         const [y, m] = k.split('-').map(Number);
         
-        // Solo sumamos si el mes guardado es cronológicamente ANTERIOR al que estamos viendo
+        // Buscamos en el pasado
         if (y < curY || (y === curY && m < curM)) {
             const mData = monthDataStore[k];
             if (mData.isValidated) {
                 const dbM = mData.db || {};
                 const hol = mData.holidays || [];
                 
-                // Sumamos los turnos de todos los que trabajaron ese mes y siguen en la plantilla actual
                 Object.keys(dbM).forEach(empName => {
-                    if (dbM[empName].asignado && dynamicMemory[empName]) {
+                    // Si el empleado tuvo turnos guardados...
+                    if (dbM[empName].asignado) {
+                        // ¡MAGIA! Si el empleado ya no está en la plantilla actual, lo resucitamos en memoria
+                        if (!dynamicMemory[empName]) {
+                            dynamicMemory[empName] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0, isActive: false };
+                        }
+                        
                         let ff = 0, vp = 0, n = 0;
                         dbM[empName].asignado.forEach(d => {
                             if (isFFContext(d, hol, y, m)) ff++;
@@ -1213,7 +1220,7 @@ function renderMemoryTab() {
         }
     });
 
-    // 2. Sumar el mes ACTUAL en vivo (sea un borrador o ya esté validado)
+    // 3. Sumar el mes ACTUAL en vivo (solo para los activos)
     const target = isManualMode ? 'asignadoManual' : 'asignado';
     employeesData.forEach(e => {
         if (db[e.name] && db[e.name][target]) {
@@ -1226,27 +1233,38 @@ function renderMemoryTab() {
             dynamicMemory[e.name].totalFF += ff;
             dynamicMemory[e.name].totalVP += vp;
             dynamicMemory[e.name].totalN += n;
-            dynamicMemory[e.name].months += 1; // Contabilizamos este mes
+            dynamicMemory[e.name].months += 1;
         }
     });
     // -------------------------------------------------------------
 
-    // 3. Crear las estadísticas para las tablas usando la memoria dinámica
-    let historyStats = employeesData.map(e => {
-        const m = dynamicMemory[e.name];
-        const totalG = m.totalFF + m.totalVP + m.totalN;
-        const mo = Math.max(m.months, 1);
-        
-        return {
-            name: e.name,
-            months: m.months,
-            ff: m.totalFF,
-            vp: m.totalVP,
-            n: m.totalN,
-            total: totalG,
-            avgF: m.totalFF / mo,
-            avgV: m.totalVP / mo
-        };
+    // 4. Crear estadísticas para TODOS los encontrados
+    let historyStats = Object.keys(dynamicMemory)
+        // Filtramos para no mostrar inactivos que tengan 0 guardias en todo su historial
+        .filter(empName => dynamicMemory[empName].months > 0 || dynamicMemory[empName].isActive)
+        .map(empName => {
+            const m = dynamicMemory[empName];
+            const totalG = m.totalFF + m.totalVP + m.totalN;
+            const mo = Math.max(m.months, 1);
+            
+            return {
+                name: empName,
+                months: m.months,
+                ff: m.totalFF,
+                vp: m.totalVP,
+                n: m.totalN,
+                total: totalG,
+                avgF: m.totalFF / mo,
+                avgV: m.totalVP / mo,
+                isActive: m.isActive
+            };
+        });
+
+    // 5. Ordenamos: Activos primero, Inactivos después. (Dentro de cada grupo, por guardias).
+    historyStats.sort((a, b) => {
+        if (a.isActive && !b.isActive) return -1;
+        if (!a.isActive && b.isActive) return 1;
+        return b.total - a.total;
     });
 
     const getExt = (key) => {
@@ -1266,7 +1284,7 @@ function renderMemoryTab() {
         return "";
     };
 
-    // 4. RENDERIZAR TABLA
+    // 6. RENDERIZAR TABLA (Con distintivo visual para inactivos)
     let th = `<tr>
         <th>Empleado</th>
         <th>Meses</th>
@@ -1279,8 +1297,10 @@ function renderMemoryTab() {
     </tr>`;
     
     let tb = historyStats.map(s => `
-        <tr>
-            <td style="text-align:left;font-weight:700;">${s.name}</td>
+        <tr style="${s.isActive ? '' : 'opacity: 0.7; background: #f8fafc;'}">
+            <td style="text-align:left;font-weight:700;">
+                ${s.name} ${s.isActive ? '' : '<span style="font-size:0.65rem; color:#94a3b8; font-weight:normal;">(Inactivo este mes)</span>'}
+            </td>
             <td class="${mark(s.months, ext.months)}">${s.months}</td>
             <td class="${mark(s.ff, ext.ff)}" style="color:#f59e0b;">${s.ff}</td>
             <td class="${mark(s.vp, ext.vp)}" style="color:#3b82f6;">${s.vp}</td>
@@ -1292,7 +1312,7 @@ function renderMemoryTab() {
     
     histTable.innerHTML = th + tb;
     
-    // 5. RENDERIZAR HEATMAP (BARRAS VERTICALES)
+    // 7. RENDERIZAR HEATMAP (BARRAS VERTICALES)
     const maxBarValue = Math.max(...historyStats.map(s => Math.max(s.ff, s.vp, s.n))) || 1;
 
     heatmap.innerHTML = historyStats.map(s => {
@@ -1300,9 +1320,10 @@ function renderMemoryTab() {
         let hVP = Math.max((s.vp / maxBarValue) * 100, 2);
         let hN  = Math.max((s.n / maxBarValue) * 100, 2);
 
+        // Los inactivos tendrán la caja semi-transparente y un borde discontinuo
         return `
-        <div class="memory-emp-box">
-            <div class="memory-emp-name" title="${s.name}">${s.name}</div>
+        <div class="memory-emp-box" style="${s.isActive ? '' : 'opacity:0.65; border:1px dashed #cbd5e1;'}">
+            <div class="memory-emp-name" title="${s.name}">${s.name} ${s.isActive ? '' : '💤'}</div>
             <div class="memory-bars" title="F: ${s.ff} | V: ${s.vp} | N: ${s.n}">
                 <div class="memory-bar" style="height:${hFF}%; background:var(--warning);"></div>
                 <div class="memory-bar" style="height:${hVP}%; background:var(--primary);"></div>
@@ -1316,7 +1337,6 @@ function renderMemoryTab() {
         </div>`;
     }).join('');
 }
-
 
 // ============================================================
 // 16. OR-TOOLS STATS DISPLAY
