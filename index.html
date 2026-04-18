@@ -1855,23 +1855,49 @@ function renderEmployees() {
 
 function openModal(n,m){curEmp=n;curMode=m;document.getElementById('modal').style.display='flex';document.getElementById('modalName').innerText=n;document.getElementById('modalDesc').innerText=m==='NO'?'Marcar LIBRANZAS (Rojo)':'Marcar PETICIONES (Azul)';renderPicker();}
 function closeModal(){document.getElementById('modal').style.display='none';renderOutput();}
+
 function renderPicker(){
-    const grid=document.getElementById('pickerGrid');grid.innerHTML='';
+    const grid=document.getElementById('pickerGrid');
+    grid.innerHTML='';
     const list=curMode==='NO'?db[curEmp].noDisp:db[curEmp].prefs;
     const dInM=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
     const first=(new Date(currentDate.getFullYear(),currentDate.getMonth(),1).getDay()||7)-1;
+    
     ['L','M','X','J','V','S','D'].forEach(d=>grid.innerHTML+=`<div style="text-align:center;font-weight:800;font-size:.72rem;color:#475569;">${d}</div>`);
     for(let i=0;i<first;i++) grid.innerHTML+=`<div></div>`;
+    
     for(let d=1;d<=dInM;d++){
         const div=document.createElement('div');
         const active=list.includes(d);
         div.className=`p-day ${active?(curMode==='NO'?'active-no':'active-yes'):''}`;
         div.innerText=d;
-        div.onmousedown=(e)=>{e.preventDefault();isDragging=true;togglePickerDay(d,!active);};
-        div.onmouseover=()=>{if(isDragging) togglePickerDay(d,!active);};
+        
+        // --- SOPORTE MULTIDISPOSITIVO ---
+        // 1. Soporte para pantallas táctiles (Móviles/Tablets)
+        div.ontouchstart = (e) => {
+            e.preventDefault(); // Evita conflictos con el navegador móvil
+            togglePickerDay(d, !active);
+        };
+
+        // 2. Soporte para ratón (Ordenadores - Clic y arrastre)
+        div.onmousedown = (e) => {
+            e.preventDefault();
+            isDragging = true;
+            togglePickerDay(d, !active);
+        };
+        div.onmouseover = () => {
+            if(isDragging) togglePickerDay(d, !active);
+        };
+        
         grid.appendChild(div);
     }
 }
+
+// Detenemos el arrastre al levantar el clic del ratón o el dedo de la pantalla
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('touchend', () => isDragging = false);
+
+
 function togglePickerDay(d,forceActive){
     const list=curMode==='NO'?db[curEmp].noDisp:db[curEmp].prefs;
     const opp=curMode==='NO'?db[curEmp].prefs:db[curEmp].noDisp;
@@ -1882,7 +1908,7 @@ function togglePickerDay(d,forceActive){
     } else {if(list.includes(d)) list.splice(list.indexOf(d),1);}
     saveMonthState();renderPicker();
 }
-window.onmouseup=()=>isDragging=false;
+
 
 function showTab(t) {
     // 1. Mostrar/Ocultar los paneles
