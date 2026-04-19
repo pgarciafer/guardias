@@ -7,6 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary:#3b82f6;--primary-light:#dbeafe;--bg:#f0f4ff;
@@ -15,7 +16,13 @@
             --success:#10b981;--purple:#8b5cf6;--purple-light:#ede9fe;
             --teal:#0d9488;
         }
-        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);margin:0;padding-bottom:60px;}
+        /* Asegura que el padding no ensanche las cajas y que todo se alinee bien */
+        * { box-sizing: border-box; }
+
+        /* Forzamos que los gráficos se comporten como bloques centrados */
+        canvas { display: block; max-width: 100%; margin: 0 auto; }
+
+        body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);margin:0;padding-bottom:100px;}
         .header{background:white;padding:.75rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(59,130,246,0.08);}
         .logo{display:flex;align-items:center;gap:10px;}
         .logo-title{font-weight:900;font-size:1.15rem;color:var(--primary);}
@@ -45,7 +52,7 @@
         .btn-fest-toggle{position:absolute;top:4px;right:4px;font-size:.58rem;cursor:pointer;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:white;font-weight:bold;z-index:10;}
         .btn-fest-toggle.active{background:var(--warning);color:white;border-color:var(--warning);}
         .pill{font-size:.62rem;padding:3px 7px;border-radius:6px;color:white;margin-bottom:3px;font-weight:800;text-align:center;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .matrix-wrapper{overflow-x:auto;border:1px solid var(--border);border-radius:8px;}
+        .matrix-wrapper{overflow-x:auto;border:1px solid var(--border);border-radius:8px;padding-bottom: 20px;background: white;}
         table{width:100%;border-collapse:collapse;font-size:.78rem;background:white;}
         th,td{border:1px solid var(--border);text-align:center;padding:5px 2px;min-width:32px;height:32px;}
         th{background:#f1f5f9;font-weight:800;color:#475569;cursor:pointer;}
@@ -110,7 +117,15 @@
         .ortools-stat-label{font-size:.65rem;color:#64748b;margin-top:2px;}
 
         /* ====== MEMORY PANEL ====== */
-        .memory-heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px;}
+        .memory-heatmap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 10px;
+    background: var(--bg);
+    border-radius: 10px;
+    width: 100%; /* Asegúrate de que sea el 100% */
+}
         .memory-emp-box{background:#f8fafc;border-radius:8px;padding:8px;border:1px solid var(--border);}
         .memory-emp-name{font-size:.65rem;font-weight:800;color:#475569;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
         .memory-bars{display:flex;gap:2px;align-items:flex-end;height:28px;}
@@ -130,7 +145,35 @@
 		
 		.stat-max { background-color: #dcfce7 !important; color: #166534 !important; font-weight: 800; border-radius: 4px; }
 		.stat-min { background-color: #fee2e2 !important; color: #991b1b !important; font-weight: 800; border-radius: 4px; }
-		
+		.cell-swap-selected { outline: 3px dashed var(--purple); background: var(--purple-light) !important; color: var(--purple) !important; animation: pulse-blue 1.5s infinite; }
+
+        /* ====== MODO OSCURO ====== */
+        body.dark-mode { --bg: #0f172a; --text: #f1f5f9; --border: #334155; --warning-light: #451a03; --friday-light: #064e3b; --primary-light: #1e3a8a; }
+        body.dark-mode .header, body.dark-mode .card, body.dark-mode .modal-content, body.dark-mode .emp-card { background: #1e293b; border-color: var(--border); box-shadow: none; }
+        body.dark-mode .cal-day, body.dark-mode table { background: #1e293b; color: var(--text); }
+        body.dark-mode .cal-head, body.dark-mode th { background: #0f172a; color: #94a3b8; }
+        body.dark-mode .row-name { border-right: 2px solid var(--border); }
+        body.dark-mode .stat-val, body.dark-mode .month-nav { background: #0f172a; }
+        body.dark-mode .input-group, body.dark-mode .memory-emp-box, body.dark-mode .ortools-stat { background: #0f172a; border-color: var(--border); }
+        body.dark-mode input { background: #1e293b !important; color: white !important; border-color: #475569 !important; }
+        body.dark-mode .btn-clear { background: transparent; }
+        /* Estilo de la columna totales en Memoria */
+        .mem-total-cell { font-weight: 900; background: #f1f5f9; }
+        body.dark-mode .mem-total-cell { background: #0f172a; color: #38bdf8; }
+        body.dark-mode .matrix-wrapper {
+    background: #1e293b;
+}
+
+        #modalExport .btn-header {
+    width: 100%;
+    font-size: 0.9rem;
+    height: 45px;
+}
+    #modalData .btn-header, #modalExport .btn-header {
+    width: 100%;
+    font-size: 0.9rem;
+    height: 45px;
+}
     </style>
 </head>
 <body onload="init()">
@@ -145,30 +188,34 @@
 
 <div class="header">
     <div class="logo">
-        <div class="logo-title">Planificador de Turnos</div>
-        <span class="logo-badge">PRO · BEAM · PARETO · OR</span>
+        <div class="logo-title">Guardias</div>
+        
     </div>
     <div class="month-nav">
-        <button class="nav-arrow" onclick="changeMonth(-1)">❮</button>
-        <span id="monthDisplay" class="month-display"></span>
-        <button class="nav-arrow" onclick="changeMonth(1)">❯</button>
-    </div>
+    <button class="nav-arrow" onclick="changeMonth(-1)">❮</button>
+    <span id="monthDisplay" class="month-display" onclick="openMonthPicker()" style="cursor:pointer; text-decoration: underline dotted var(--primary); text-underline-offset: 4px;" title="Click para saltar a fecha"></span>
+    <button class="nav-arrow" onclick="changeMonth(1)">❯</button>
+</div>
 	<button class="btn-header" onclick="goToCurrentMonth()" style="background:white; color:var(--primary); margin-left:5px; border:1px solid var(--primary); font-weight:bold;">📅 Hoy</button>
-    <div class="btn-group">
+    <button id="btn-dark-mode" class="btn-header" onclick="toggleDarkMode()" style="background:transparent; border:1px solid var(--border); font-size:1rem; margin-left:5px;">🌙</button>
+
+<div class="btn-group">
     <button id="btn-manual-mode" class="btn-header btn-manual" onclick="toggleManualMode()">🛠️ Activar Manual</button>
 
-    <a href="https://github.com/pgarciafer/guardias/raw/main/Plantilla%20desde%200.xlsx" class="btn-header" style="background: var(--success); color: white; text-decoration: none;" target="_blank">📥 Descargar Plantilla</a>
-    
-    <input type="file" id="importExcel" hidden accept=".xlsx,.xls,.csv" onchange="importFromExcel(event)">
-    
-    <button class="btn-header btn-excel" onclick="document.getElementById('importExcel').click()">📥 Importar plantilla</button>
-    <button class="btn-header btn-excel" onclick="exportToExcel()">📤 Descargar Cuadrante Excel</button>
-    <button class="btn-header btn-pdf" onclick="exportToPDF()">🖨️ PDF</button>
+    <input type="file" id="importExcel" style="display:none;" accept=".xlsx,.xls,.csv" onchange="importFromExcel(event)">
+    <input type="file" id="importBackupFile" style="display:none;" accept=".json" onchange="restoreBackup(event)">
+
+    <button class="btn-header" style="background:var(--primary); color:white; border:none;" onclick="openExportModal()">📤 Exportar</button>
+
+    <button class="btn-header" style="background:#475569; color:white; border:none;" onclick="openDataModal()">💾 Datos</button>
     
     <button id="btn-limpiar" class="btn-header btn-clear" onclick="clearAssignment()">🗑️ Limpiar</button>
-	<button class="btn-header" style="background:#dc2626; color:white; border:none;" onclick="if(confirm('🚨 ¿Borrar toda la memoria y resetear la app de fábrica?')){ localStorage.clear(); location.reload(); }">☢️ Reset Total</button>
+    
+    <button class="btn-header" style="background:#dc2626; color:white; border:none;" onclick="if(confirm('🚨 ¿Borrar toda la memoria y resetear la app de fábrica?')){ localStorage.clear(); location.reload(); }">☢️ Reset Total</button>
+    <button class="btn-header" style="background:#f1f5f9; color:#475569; border:1px solid var(--border);" onclick="openAIModal()">⚙️</button>
     <button id="btn-generar" class="btn-header btn-auto" onclick="generatePro()">🚀 Generar PRO</button>
 </div>
+
 </div>
 
 <div class="container">
@@ -189,7 +236,7 @@
         <div id="pdf-page-2" class="card">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">
                 <div>
-                    <h3 style="margin:0;font-size:.88rem;color:#475569;">🤖 Cuadrante PRO — Motor Automático</h3>
+                    <h3 style="margin:0;font-size:.88rem;color:#475569;">🤖 Cuadrante — Motor Automático</h3>
                     <span id="status-validated-auto" style="display:none;font-size:.72rem;font-weight:bold;color:var(--success);background:#dcfce7;padding:3px 8px;border-radius:6px;margin-top:6px;">🔒 VALIDADO COMO OFICIAL</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
@@ -210,16 +257,17 @@
         <div id="pdf-page-manual" class="card card-manual hidden">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                 <div>
-                    <h3 style="margin:0 0 4px 0;font-size:1rem;color:var(--danger);">🛠️ Cuadrante Libre Manual</h3>
+                    <h3 style="margin:0 0 4px 0;font-size:1rem;color:var(--danger);">🛠️ Cuadrante Modo Manual</h3>
                     <span style="font-size:.75rem;color:#64748b;">Copia del automático. Haz clic en las celdas para reasignar sin bloqueos. Auditoría visual activa.</span>
                 </div>
                 <div id="manualActionButtons" style="display:flex;gap:8px;">
-					<button id="btn-validate-manual" style="background:var(--success);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="validarCuadrante('manual')">✅ Validar MANUAL</button>
-					
-					<button style="background:var(--primary);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="autoCompleteManual()">🪄 Autocompletar</button>
-    
-					<button style="padding:7px 14px;border-radius:8px;background:#e2e8f0;border:none;font-weight:bold;cursor:pointer;" onclick="syncManualFromAuto()">🔄 Restaurar a estado Auto</button>
-				</div>
+                    <button id="btn-undo" style="background:white; color:#64748b; border:1px solid var(--border); padding:7px 14px; border-radius:8px; cursor:pointer; font-weight:bold; opacity:0.5;" disabled onclick="undoManualAction()">↩️ Deshacer</button>
+                    <button id="btn-swap" style="background:white; color:var(--purple); border:1px solid var(--purple); padding:7px 14px; border-radius:8px; cursor:pointer; font-weight:bold;" onclick="toggleSwapMode()">🔄 Intercambiar</button>
+                    
+                    <button id="btn-validate-manual" style="background:var(--success);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="validarCuadrante('manual')">✅ Validar MANUAL</button>
+                    <button style="background:var(--primary);color:white;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-weight:bold;" onclick="autoCompleteManual()">🪄 Autocompletar</button>
+                    <button style="padding:7px 14px;border-radius:8px;background:#e2e8f0;border:none;font-weight:bold;cursor:pointer;" onclick="syncManualFromAuto()">🔄 Restaurar a estado Auto</button>
+                </div>
             </div>
             <div class="matrix-wrapper"><table id="matrixTableManual"></table></div>
             <div id="conflictAlertManual">
@@ -246,18 +294,46 @@
     <div id="tab-memory" class="hidden">
         <div class="card">
             <h3 style="margin:0 0 6px 0;font-size:.9rem;">🧠 Memoria de Patrones Históricos</h3>
-            <p style="font-size:.78rem;color:#64748b;margin:0 0 14px 0;">El motor aprende qué empleados tienen más turnos de cada tipo y ajusta la siguiente generación para compensar de forma dinámica.</p>
-            <p style="font-size:.7rem; color:#64748b;"><b>Leyenda:</b> 🟧 Festivos | 🟦 Vísperas | ⬜ Normales</p>
-			<div id="memoryHeatmap" class="memory-heatmap"></div>
+            <p style="font-size:.78rem;color:#64748b;margin:0 0 14px 0;">El motor aprende qué empleados tienen más turnos de cada tipo y ajusta la siguiente generación.</p>
+            
+            <div style="display: block; overflow: hidden;">
+                <p style="font-size:.7rem; color:#64748b; margin-top:0;">
+                    <b>Leyenda:</b> 🟧 Festivos | 🟦 Vísperas | ⬜ Normales
+                </p>
+                <div id="memoryHeatmap" class="memory-heatmap" style="width: 100%;"></div>
+            </div>
         </div>
+        <div class="card" style="border: 1px solid var(--border); background: white;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; font-size:.9rem; color:#475569;">📊 Consulta Histórica</h3>
+                <button id="btnToggleSpecial" class="btn-header" 
+                    style="background:var(--purple-light); color:var(--purple); border:1px solid var(--purple); font-size:.7rem; padding: 5px 10px;" 
+                    onclick="toggleSpecialDates()">
+                🎄 Fechas Especiales
+                </button>
+            </div>
+    
+            <div id="specialDatesContainer" style="display:none; margin-top:15px; border-top: 1px solid var(--border); padding-top:15px;">
+                <p style="font-size:0.75rem; color:#64748b; margin-bottom:10px;">
+                    Consulta rápida de quién trabajó en las fechas críticas del ciclo navideño actual.
+                </p>
+                <div class="matrix-wrapper">
+                    <table id="specialDatesTable" style="background:white;"></table>
+                </div>
+            </div>
+        </div>
+
+
+
         <div class="card">
-            <h3 style="margin:0 0 12px 0;font-size:.9rem;">📈 Acumulados Históricos (todos los meses guardados)</h3>
+            <h3 style="margin:0 0 12px 0;font-size:.9rem;">📈 Acumulados del Año</h3>
             <div class="matrix-wrapper"><table id="historyTable"></table></div>
         </div>
     </div>
 
     <div id="tab-empleados" class="hidden">
-        <div style="margin-bottom:16px;display:flex;justify-content:flex-end;">
+        <div style="margin-bottom:16px;display:flex;justify-content:flex-end; gap:8px;">
+            <button class="btn-header" style="background:#64748b;color:white;border:none;" onclick="openManageEmpModal()">👥 Manejar Plantilla</button>
             <button class="btn-header" style="background:var(--success);color:white;border:none;" onclick="openAddEmployeeModal()">➕ Añadir Empleado</button>
         </div>
         <div id="employeeList" class="employee-grid"></div>
@@ -269,14 +345,113 @@
         <h3 id="modalName" style="margin:0;color:#1e293b;"></h3>
         <p id="modalDesc" style="font-size:.82rem;color:#64748b;margin-top:4px;"></p>
         <div id="pickerGrid" class="p-grid"></div>
+        
+        <div style="margin-top:16px; padding:12px; background:#f1f5f9; border-radius:8px;">
+            <div style="font-size:0.75rem; font-weight:bold; color:#475569; margin-bottom:6px;">🗓️ Rango rápido (Vacaciones/Bajas)</div>
+            <div style="display:flex; gap:8px;">
+                <input type="number" id="rangeStart" placeholder="Inicio" min="1" max="31" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border);">
+                <input type="number" id="rangeEnd" placeholder="Fin" min="1" max="31" style="width:100%; padding:6px; border-radius:6px; border:1px solid var(--border);">
+                <button style="background:var(--primary); color:white; border:none; border-radius:6px; padding:0 12px; cursor:pointer; font-weight:bold;" onclick="applyDateRange()">Aplicar</button>
+            </div>
+        </div>
+        
         <button style="width:100%;padding:13px;margin-top:22px;background:var(--primary);color:white;border:none;border-radius:12px;cursor:pointer;font-weight:bold;" onclick="closeModal()">Guardar Cambios</button>
+    </div>
+</div>
+
+<div id="modalIncompat" class="modal">
+    <div class="modal-content" style="width:320px;">
+        <h3 id="incompatName" style="margin:0 0 6px 0; color:#1e293b;"></h3>
+        <p style="font-size:.82rem;color:#64748b;margin-top:4px;margin-bottom:16px;">Selecciona con quién NO debe coincidir ni en el mismo día ni en días consecutivos:</p>
+        <div id="incompatList" style="max-height:300px; overflow-y:auto; padding-right:8px;"></div>
+        <button style="width:100%;padding:13px;margin-top:22px;background:#f59e0b;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:bold;" onclick="closeIncompatModal()">Cerrar y Guardar</button>
+    </div>
+</div>
+
+
+<div id="modalMonthPicker" class="modal">
+    <div class="modal-content" style="width:320px;">
+        <h3 style="margin:0 0 15px 0; text-align:center;">Seleccionar Fecha</h3>
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <select id="pickerYear" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border); font-weight:bold;"></select>
+        </div>
+
+        <div id="pickerMonthGrid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+            </div>
+
+        <button style="width:100%; padding:10px; margin-top:20px; background:#e2e8f0; border:none; border-radius:10px; cursor:pointer; font-weight:bold; color:#64748b;" onclick="closeMonthPicker()">Cancelar</button>
+    </div>
+</div>
+
+
+<div id="modalData" class="modal">
+    <div class="modal-content" style="width:300px; text-align:center;">
+        <h3 style="margin:0 0 20px 0; color:var(--text);">💾 Gestión de Datos</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-header" style="background:#475569; color:white; border:none; justify-content:center; padding:12px;" onclick="closeDataModal(); exportBackup();">💾 Crear Copia Seguridad</button>
+            <button class="btn-header" style="background:#64748b; color:white; border:none; justify-content:center; padding:12px;" onclick="closeDataModal(); document.getElementById('importBackupFile').click();">📂 Restaurar Copia</button>
+        </div>
+        <button style="width:100%; padding:10px; margin-top:20px; background:#e2e8f0; border:none; border-radius:10px; cursor:pointer; font-weight:bold; color:#64748b;" onclick="closeDataModal()">Cancelar</button>
+    </div>
+</div>
+
+<div id="modalManageEmp" class="modal">
+    <div class="modal-content" style="width:320px; text-align:center;">
+        <h3 style="margin:0 0 20px 0; color:var(--text);">👥 Manejar Plantilla</h3>
+        <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">¿De dónde quieres cargar los empleados para este mes?</p>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-header" style="background:var(--primary); color:white; border:none; justify-content:center; padding:12px;" onclick="copyEmployeesFromPreviousMonth()">⏮️ Copiar del mes anterior</button>
+            <button class="btn-header" style="background:var(--success); color:white; border:none; justify-content:center; padding:12px;" onclick="closeManageEmpModal(); document.getElementById('importExcel').click();">📥 Importar desde Excel</button>
+        </div>
+        <button style="width:100%; padding:10px; margin-top:20px; background:#e2e8f0; border:none; border-radius:10px; cursor:pointer; font-weight:bold; color:#64748b;" onclick="closeManageEmpModal()">Cancelar</button>
+    </div>
+</div>
+
+<div id="modalAI" class="modal">
+    <div class="modal-content" style="width: 350px;">
+        <h3 style="margin:0 0 10px 0; color:#1e293b;">⚙️ Personalidad de la IA</h3>
+        <p style="font-size:.8rem;color:#64748b;margin-bottom:20px;">Ajusta las prioridades del motor para <b>este mes</b>. (0 = Ignorar, 100 = Máxima prioridad)</p>
+
+        <div style="margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; font-size:.85rem; font-weight:bold; margin-bottom:5px;">
+                <span>⭐ Peticiones (P)</span> <span id="valAI-pref" style="color:var(--primary)">50</span>
+            </div>
+            <input type="range" id="slider-pref" min="0" max="100" value="50" style="width:100%; cursor:pointer;" oninput="document.getElementById('valAI-pref').innerText=this.value">
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; font-size:.85rem; font-weight:bold; margin-bottom:5px;">
+                <span>⚖️ Equidad (Mismas guardias)</span> <span id="valAI-equity" style="color:var(--primary)">20</span>
+            </div>
+            <input type="range" id="slider-equity" min="0" max="100" value="20" style="width:100%; cursor:pointer;" oninput="document.getElementById('valAI-equity').innerText=this.value">
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; font-size:.85rem; font-weight:bold; margin-bottom:5px;">
+                <span>📅 Espaciado (Descansos)</span> <span id="valAI-spacing" style="color:var(--primary)">25</span>
+            </div>
+            <input type="range" id="slider-spacing" min="0" max="100" value="25" style="width:100%; cursor:pointer;" oninput="document.getElementById('valAI-spacing').innerText=this.value">
+        </div>
+
+        <div style="margin-bottom:25px;">
+            <div style="display:flex; justify-content:space-between; font-size:.85rem; font-weight:bold; margin-bottom:5px;">
+                <span>🧠 Justicia Histórica</span> <span id="valAI-memory" style="color:var(--primary)">30</span>
+            </div>
+            <input type="range" id="slider-memory" min="0" max="100" value="30" style="width:100%; cursor:pointer;" oninput="document.getElementById('valAI-memory').innerText=this.value">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button style="flex:1; padding:11px; background:#e2e8f0; border:none; border-radius:9px; cursor:pointer; font-weight:bold; color:#475569;" onclick="closeAIModal()">Cancelar</button>
+            <button style="flex:1; padding:11px; background:var(--primary); color:white; border:none; border-radius:9px; cursor:pointer; font-weight:bold;" onclick="saveAIWeights()">Guardar</button>
+        </div>
     </div>
 </div>
 
 <div id="modalAddEmp" class="modal">
     <div class="modal-content" style="width:280px;">
         <h3 style="margin:0 0 18px 0;">Nuevo Empleado</h3>
-        <div class="input-field" style="margin-bottom:12px;"><label>Nombre</label><input type="text" id="newEmpName" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;"></div>
+        <div class="input-field" style="margin-bottom:12px;"><label>Nombre</label><input type="text" id="newEmpName" onkeyup="if(event.key === 'Enter') addEmployee()" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;"></div>
         <div class="input-field"><label>Color</label><input type="color" id="newEmpColor" style="width:100%;height:38px;border:1px solid var(--border);border-radius:8px;cursor:pointer;" value="#3b82f6"></div>
         <div style="display:flex;gap:8px;margin-top:22px;">
             <button style="flex:1;padding:11px;background:#e2e8f0;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="closeAddEmployeeModal()">Cancelar</button>
@@ -294,6 +469,18 @@
             <button style="flex:1;padding:11px;background:#e2e8f0;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="closeEditEmployeeModal()">Cancelar</button>
             <button style="flex:1;padding:11px;background:var(--primary);color:white;border:none;border-radius:9px;cursor:pointer;font-weight:bold;" onclick="saveEditEmployee()">Guardar</button>
         </div>
+    </div>
+</div>
+
+<div id="modalExport" class="modal">
+    <div class="modal-content" style="width:300px; text-align:center;">
+        <h3 style="margin:0 0 20px 0; color:var(--text);">📤 Exportar Cuadrante</h3>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button class="btn-header" style="background:var(--success); color:white; border:none; justify-content:center; padding:12px;" onclick="closeExportModal(); exportToExcel();">📊 Descargar Excel (.xlsx)</button>
+            <button class="btn-header" style="background:#e74c3c; color:white; border:none; justify-content:center; padding:12px;" onclick="closeExportModal(); exportToPDF();">🖨️ Generar PDF Oficial</button>
+            <button class="btn-header" style="background:#64748b; color:white; border:none; justify-content:center; padding:12px;" onclick="closeExportModal(); copyToClipboard();">📋 Copiar Resumen Texto</button>
+        </div>
+        <button style="width:100%; padding:10px; margin-top:20px; background:#e2e8f0; border:none; border-radius:10px; cursor:pointer; font-weight:bold; color:#64748b;" onclick="closeExportModal()">Cancelar</button>
     </div>
 </div>
 
@@ -324,16 +511,30 @@ let isMonthValidated = false;
 let lastManualAction = {name:null,day:null};
 let curEmp = null, curMode = '', isDragging = false;
 
+let manualHistory = [];
+let swapState = { active: false, emp: null, day: null };
+
 // Motor PRO state
 let beamSnapshots = {};      
 let scoreHistory = [];        
 let patternMemory = {};       
 let ortoolsResult = null;     
 
+
+let aiWeights = { pref: 50, equity: 20, spacing: 25, memory: 30 };
+
+let dailyCoverage = {}; // Guardará la cobertura personalizada por día
+
 // ============================================================
 // 2. INICIALIZACIÓN
 // ============================================================
 function init() {
+    // Recordar el modo oscuro
+    if (localStorage.getItem('planificador_dark_mode') === 'true') {
+        document.body.classList.add('dark-mode');
+        const btnDark = document.getElementById('btn-dark-mode');
+        if(btnDark) btnDark.innerText = "☀️";
+    }
     employeesData.forEach(e => {
         if(!db[e.name]) {
             db[e.name] = {
@@ -360,7 +561,9 @@ function saveMonthState() {
         holidays: [...manualHolidays], 
         isValidated: isMonthValidated, 
         validatedMode: db.validatedMode,
-        isManualMode: isManualMode, // <--- AHORA GUARDAMOS SI EL MODO MANUAL ESTABA ACTIVO
+        isManualMode: isManualMode,
+        aiWeights: {...aiWeights},
+        dailyCoverage: {...dailyCoverage}, // ⬅️ NUEVO: Guardamos la cobertura
         employees: JSON.parse(JSON.stringify(employeesData)),
         db: JSON.parse(JSON.stringify(db))
     };
@@ -383,20 +586,24 @@ function loadMonthState() {
     if (saved) {
         manualHolidays = [...(saved.holidays || [])];
         isMonthValidated = saved.isValidated || false;
-        db.validatedMode = saved.validatedMode || 'auto';
-        isManualMode = saved.isManualMode || false; // <--- CARGAMOS EL ESTADO DEL MODO MANUAL
+        isManualMode = saved.isManualMode || false; 
+        aiWeights = saved.aiWeights || { pref: 50, equity: 20, spacing: 25, memory: 30 };
+        dailyCoverage = saved.dailyCoverage || {}; // ⬅️ NUEVO: Recuperamos la cobertura
         employeesData = JSON.parse(saved.employees ? JSON.stringify(saved.employees) : "[]");
+        
         db = JSON.parse(saved.db ? JSON.stringify(saved.db) : "{}");
+        db.validatedMode = saved.validatedMode || 'auto';
     } else {
         manualHolidays = [];
         isMonthValidated = false;
-        db.validatedMode = null;
-        isManualMode = false; // <--- POR DEFECTO, LOS MESES NUEVOS EMPIEZAN EN MODO AUTO
+        isManualMode = false; 
+        aiWeights = { pref: 50, equity: 20, spacing: 25, memory: 30 };
+        dailyCoverage = {}; // ⬅️ NUEVO: Empezamos limpios
         employeesData = [];
         db = {};
+        db.validatedMode = null;
     }
 }
-
 
 function changeMonth(o) {
     saveMonthState(); // 1. Guardamos el mes en el que estamos antes de salir
@@ -433,46 +640,57 @@ function validarCuadrante(mode) {
     if(mode === 'manual') {
         employeesData.forEach(e => { db[e.name].asignado=[...(db[e.name].asignadoManual||[])]; });
     }
-	
-	db.validatedMode = mode;
-
-    updatePatternMemory();
-
-    isMonthValidated=true;
-    saveMonthState();
     
-    let nextDate=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,1);
-    const nextKey=getMonthKey(nextDate);
-    if(monthDataStore[nextKey]) {
-        employeesData.forEach(e => {
-            let mFF=0,mVP=0;
-            db[e.name].asignado.forEach(d => { if(isFF(d)) mFF++; else if(isVP(d)) mVP++; });
-            monthDataStore[nextKey].employees[e.name].startingAccVP=(db[e.name].startingAccVP||0)+mVP;
-            monthDataStore[nextKey].employees[e.name].startingAccFF=(db[e.name].startingAccFF||0)+mFF;
-        });
-    }
+    db.validatedMode = mode;
+    isMonthValidated = true; // 1. Marcamos el mes como cerrado
     
+    saveMonthState(); // 2. Guardamos INMEDIATAMENTE para que el sistema sepa que está validado
+    
+    updatePatternMemory(); // 3. AHORA SÍ, la IA puede leer el mes y sumar los totales históricos
+    
+    // --- MAGIA: EFECTO CASCADA ---
+    propagateAccumulators(); // 4. Viajamos al futuro para recalcular
+    // -----------------------------
+    
+    renderOutput(); // 5. Refrescamos pantalla
+    addLog(`🔒 Cuadrante ${mode.toUpperCase()} VALIDADO. Línea temporal futura actualizada.`);
+}
 
-    
-    renderOutput();
-    addLog(`🔒 Cuadrante ${mode.toUpperCase()} VALIDADO. Memoria actualizada.`);
+// NUEVA FUNCIÓN: Recalcula la memoria de la IA leyendo solo el año que estás mirando
+function rebuildYearlyPatternMemory(targetYear) {
+    employeesData.forEach(e => {
+        patternMemory[e.name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0 };
+    });
+
+    Object.keys(monthDataStore).forEach(k => {
+        const [y, m] = k.split('-').map(Number);
+        if (y === targetYear) {
+            const mData = monthDataStore[k];
+            if (mData.isValidated) {
+                const dbM = mData.db || {};
+                const hol = mData.holidays || [];
+                Object.keys(dbM).forEach(empName => {
+                    if (dbM[empName].asignado && patternMemory[empName]) {
+                        let ff = 0, vp = 0, n = 0;
+                        dbM[empName].asignado.forEach(d => {
+                            if (isFFContext(d, hol, y, m)) ff++;
+                            else if (isVPContext(d, hol, y, m)) vp++;
+                            else n++;
+                        });
+                        patternMemory[empName].totalFF += ff;
+                        patternMemory[empName].totalVP += vp;
+                        patternMemory[empName].totalN += n;
+                        patternMemory[empName].months += 1;
+                    }
+                });
+            }
+        }
+    });
 }
 
 function updatePatternMemory() {
-    const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
-    employeesData.forEach(e => {
-        if(!patternMemory[e.name]) patternMemory[e.name]={totalFF:0,totalVP:0,totalN:0,months:0};
-        let ff=0,vp=0,n=0;
-        (db[e.name].asignado||[]).forEach(d => {
-            if(isFF(d)) ff++;
-            else if(isVP(d)) vp++;
-            else n++;
-        });
-        patternMemory[e.name].totalFF+=ff;
-        patternMemory[e.name].totalVP+=vp;
-        patternMemory[e.name].totalN+=n;
-        patternMemory[e.name].months+=1;
-    });
+    // Cuando validamos, le obligamos a recalcular en base al año actual
+    rebuildYearlyPatternMemory(currentDate.getFullYear());
     renderMemoryTab();
 }
 
@@ -538,9 +756,43 @@ function toggleManualMode() {
         syncManualFromAuto(); // Clonamos la matriz al habilitar
     } else {
         btn.classList.remove('active');
-        btn.innerText = "🛠️ Activar Manual (Clonar)";
+        btn.innerText = "🛠️ Modo Manual";
         secManual.classList.add('hidden');
     }
+    renderOutput();
+}
+
+
+function saveManualHistory() {
+    let snapshot = {};
+    employeesData.forEach(e => { snapshot[e.name] = [...(db[e.name].asignadoManual || [])]; });
+    manualHistory.push(snapshot);
+    if(manualHistory.length > 20) manualHistory.shift(); // Guardamos hasta 20 pasos atrás
+    updateUndoButton();
+}
+
+function undoManualAction() {
+    if(manualHistory.length === 0) return;
+    let lastState = manualHistory.pop();
+    employeesData.forEach(e => { db[e.name].asignadoManual = [...(lastState[e.name] || [])]; });
+    
+    swapState = { active: false, emp: null, day: null }; // Apagamos el modo intercambio si estaba puesto
+    saveMonthState();
+    renderOutput();
+    updateUndoButton();
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('btn-undo');
+    if(btn) {
+        btn.disabled = manualHistory.length === 0;
+        btn.style.opacity = manualHistory.length === 0 ? '0.5' : '1';
+    }
+}
+
+function toggleSwapMode() {
+    swapState.active = !swapState.active;
+    swapState.emp = null; swapState.day = null;
     renderOutput();
 }
 
@@ -551,23 +803,52 @@ function syncManualFromAuto(){
 
 function toggleFreeManualAsign(n, d) {
     if(isMonthValidated) return;
-    
-    // 1. FOTO DEL SCROLL: Guardamos dónde estás mirando (Vertical y Horizontal)
     const currentScrollY = window.scrollY;
     const wrapper = document.querySelector('.matrix-wrapper');
     const currentScrollX = wrapper ? wrapper.scrollLeft : 0;
 
-    // 2. Lógica de asignación
-    const isA = db[n].asignadoManual.includes(d);
-    if(!isA) db[n].asignadoManual.push(d); 
-    else db[n].asignadoManual = db[n].asignadoManual.filter(x => x !== d);
+    // --- MODO INTERCAMBIO (SWAP TOOL) ---
+    if (swapState.active) {
+        if (!swapState.emp) {
+            // Primer clic: Seleccionar el turno origen
+            if (!db[n].asignadoManual.includes(d)) return alert("⚠️ Debes seleccionar un día que ya tenga un turno (G) asignado para intercambiarlo.");
+            swapState.emp = n; swapState.day = d;
+        } else {
+            // Segundo clic: Ejecutar el cambio
+            if (swapState.emp === n && swapState.day === d) {
+                swapState.emp = null; swapState.day = null; // Clic en el mismo = Deseleccionar
+            } else {
+                if (!db[n].asignadoManual.includes(d)) return alert("⚠️ Selecciona OTRO turno (G) de la tabla para realizar el intercambio cruzado.");
+                
+                let emp1 = swapState.emp, day1 = swapState.day, emp2 = n, day2 = d;
+                let t1 = db[emp1].asignadoManual.filter(x => x !== day1);
+                let t2 = db[emp2].asignadoManual.filter(x => x !== day2);
+                
+                // Verificamos si al cruzarlos, sigue siendo legal para AMBOS
+                if (checkLegality(emp1, day2, t1, false, true) && checkLegality(emp2, day1, t2, false, true)) {
+                    saveManualHistory(); // Guardamos paso por si quiere deshacer
+                    db[emp1].asignadoManual = [...t1, day2];
+                    db[emp2].asignadoManual = [...t2, day1];
+                    addLog(`🔄 Intercambio limpio: ${emp1} (día ${day1}) <-> ${emp2} (día ${day2})`);
+                } else {
+                    alert("⚠️ INTERCAMBIO BLOQUEADO: El cambio provocaría que alguien incumpla descansos (48h), incompatibilidades u objetivos máximos.");
+                }
+                swapState.active = false; swapState.emp = null; swapState.day = null;
+            }
+        }
+    } 
+    // --- MODO NORMAL (Hacer clic para poner/quitar) ---
+    else {
+        saveManualHistory(); // Guardamos paso antes de hacer clic
+        const isA = db[n].asignadoManual.includes(d);
+        if(!isA) db[n].asignadoManual.push(d); 
+        else db[n].asignadoManual = db[n].asignadoManual.filter(x => x !== d);
+    }
     
     saveMonthState();
-    
-    // 3. Redibujamos la pantalla
     renderOutput(); 
 
-    // 4. RESTAURAMOS EL SCROLL: Te devolvemos exactamente a donde estabas
+    // Restauramos scroll
     window.scrollTo(0, currentScrollY);
     const newWrapper = document.querySelector('.matrix-wrapper');
     if (newWrapper) newWrapper.scrollLeft = currentScrollX;
@@ -576,15 +857,14 @@ function toggleFreeManualAsign(n, d) {
 
 function autoCompleteManual() {
     if (isMonthValidated) return;
-    
     addLog(`<span class="log-tag tag-pro" style="background:var(--primary)">MANUAL</span> Autocompletando IA + Rescate...`);
     const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     let assignedSomething = false;
 
     employeesData.forEach(e => {
         db[e.name].prefs.forEach(pDay => {
-            let numAsignados = employeesData.filter(emp => db[e.name].asignadoManual.includes(pDay)).length;
-            if (numAsignados < 2 && !db[e.name].asignadoManual.includes(pDay) && checkLegality(e.name, pDay, db[e.name].asignadoManual, true, true)) {
+            let numAsignados = employeesData.filter(emp => db[emp.name].asignadoManual.includes(pDay)).length;
+            if (numAsignados < getReq(pDay) && !db[e.name].asignadoManual.includes(pDay) && checkLegality(e.name, pDay, db[e.name].asignadoManual, true, true)) {
                 db[e.name].asignadoManual.push(pDay);
             }
         });
@@ -597,7 +877,7 @@ function autoCompleteManual() {
 
         for (let d = 1; d <= days; d++) {
             let count = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).length;
-            if (count < 2) {
+            if (count < getReq(d)) {
                 let cands = employeesData.filter(e => !db[e.name].asignadoManual.includes(d) && checkLegality(e.name, d, db[e.name].asignadoManual, true, true));
                 if (cands.length > 0 && cands.length < minCands) {
                     minCands = cands.length; bestDay = d; bestCands = cands;
@@ -620,23 +900,16 @@ function autoCompleteManual() {
                 if (cA !== cB) return cA - cB; 
                 return db[b.name].noDisp.length - db[a.name].noDisp.length;
             });
-
             db[bestCands[0].name].asignadoManual.push(bestDay);
             assignedSomething = true; keepGoing = true; 
         }
     }
-
-    // --- AQUÍ ENTRA EL ESCUADRÓN DE RESCATE ---
     repairGaps(days, true);
-
     balanceQuantities(true);
     orToolsOptimize(days, true);
-
-    saveMonthState();
-    renderOutput();
+    saveMonthState(); renderOutput();
     addLog(`<span class="log-tag tag-pro" style="background:var(--success)">MANUAL</span> Autocompletado finalizado.`);
 }
-
 
 
 
@@ -672,12 +945,12 @@ function checkLegality(name, day, tempDays = null, checkLimit = false, isManualC
     if (dow === 1 && assigned.includes(day - 2)) return false;
     if (dow === 6 && assigned.includes(day + 2)) return false;
 
-    const partners = { "Oscar": "Gema", "Gema": "Oscar" };
-    if (partners[name]) {
-        const p = partners[name];
+    // REGLA DINÁMICA DE INCOMPATIBLES
+    let incomp = db[name].incompatibles || [];
+    for (let p of incomp) {
         if (db[p]) {
-            // AQUÍ LA CLAVE: Usamos isManualCheck para no equivocarnos NUNCA de tabla
-            const pAssigned = isManualCheck ? db[p].asignadoManual : db[p].asignado;
+            const pAssigned = isManualCheck ? (db[p].asignadoManual || []) : (db[p].asignado || []);
+            // No pueden coincidir el mismo día, ni el anterior, ni el posterior
             if (pAssigned.includes(day)) return false;
             if (pAssigned.includes(day - 1) || pAssigned.includes(day + 1)) return false;
         }
@@ -694,53 +967,40 @@ function scoreVector(empName, day, pass) {
     const e = db[empName];
     const mem = patternMemory[empName] || {totalFF:0, totalVP:0, totalN:0, months:1};
     const months = Math.max(mem.months, 1);
-
     const curFF = e.asignado.filter(d=>isFF(d)).length;
     const curVP = e.asignado.filter(d=>isVP(d)).length;
     const totalFF = (e.startingAccFF||0) + curFF;
     const totalVP = (e.startingAccVP||0) + curVP;
-    const days = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
-    const targetAvg = Math.ceil((days*2)/employeesData.length);
+    const targetAvg = Math.ceil(getTotalReq()/employeesData.length);
     const target = e.qTotal>0 ? e.qTotal : targetAvg;
     const ratio = e.asignado.length / target;
-
     const equity = 1 - Math.min(ratio, 1.5);
     const dist = getMinDistance(empName, day);
     const spacing = dist===999 ? 1 : Math.min(dist,15)/15;
-
     const avgFFperMonth = mem.totalFF / months;
     const fairnessFF = isFF(day) ? Math.max(0, 1 - (curFF * 0.6) - (totalFF / Math.max(avgFFperMonth * 1.5, 1)) * 0.2) : 0.5;
-
     const avgVPperMonth = mem.totalVP / months;
     const fairnessVP = isVP(day) ? Math.max(0, 1 - (curVP * 0.6) - (totalVP / Math.max(avgVPperMonth * 1.5, 1)) * 0.2) : 0.5;
-
     const pref = e.prefs.includes(day) ? 1 : 0;
-    const alts = employeesData.filter(o =>
-        o.name!==empName && !db[o.name].noDisp.includes(day) &&
-        !db[o.name].asignado.includes(day) && checkLegality(o.name, day, 1)
-    ).length;
-    const bottleneck = Math.max(0, 1 - alts/employeesData.length);
-
-    const memoryPenalty = isFF(day)
-        ? Math.max(0, 1 - (mem.totalFF/months)/3)
-        : isVP(day)
-            ? Math.max(0, 1 - (mem.totalVP/months)/3)
-            : 0.5;
-
+    const alts = employeesData.filter(o => o.name!==empName && !db[o.name].noDisp.includes(day) && !db[o.name].asignado.includes(day) && checkLegality(o.name, day, null, false, false)).length;
+    const bottleneck = Math.max(0, 1 - alts/Math.max(1, employeesData.length));
+    const memoryPenalty = isFF(day) ? Math.max(0, 1 - (mem.totalFF/months)/3) : isVP(day) ? Math.max(0, 1 - (mem.totalVP/months)/3) : 0.5;
     return {equity, spacing, fairnessFF, fairnessVP, pref, bottleneck, memoryPenalty};
 }
 
 function compositeScore(vec, pass) {
+    // La IA ahora lee las posiciones de tus sliders en tiempo real
     const W = {
-        equity: pass.type==='FILL_ALL' ? 30 : 20,
-        spacing: 25,
-        fairnessFF: pass.type==='TARGET_FF'||pass.type==='FILL_FF' ? 40 : 10,
-        fairnessVP: pass.type==='TARGET_VP'||pass.type==='FILL_VP' ? 40 : 10,
-        pref: 50,
-        bottleneck: 15,
-        memoryPenalty: 20
+        equity: aiWeights.equity * (pass.type==='FILL_ALL' ? 1.5 : 1),
+        spacing: aiWeights.spacing,
+        fairnessFF: aiWeights.memory * (pass.type==='TARGET_FF'||pass.type==='FILL_FF' ? 1.5 : 0.5),
+        fairnessVP: aiWeights.memory * (pass.type==='TARGET_VP'||pass.type==='FILL_VP' ? 1.5 : 0.5),
+        pref: aiWeights.pref,
+        bottleneck: 15, // Anti-atascos fijo
+        memoryPenalty: aiWeights.memory * 0.8
     };
-    const total = Object.values(W).reduce((a,b)=>a+b,0);
+    
+    const total = Object.values(W).reduce((a,b)=>a+b,0) || 1; // Evita dividir por cero
     let s = 0;
     for(const k of Object.keys(W)) s += (vec[k]||0)*W[k];
     return s/total; 
@@ -764,30 +1024,21 @@ function computeParetoFront(candidates) {
 const BEAM_WIDTH = 3;
 
 function beamEvaluateDay(day, pass) {
-    const candidates = employeesData
-        .filter(e => {
-            if(db[e.name].asignado.includes(day)||db[e.name].noDisp.includes(day)) return false;
-            if(pass.type==='P'&&!db[e.name].prefs.includes(day)) return false;
-            const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
-            const targetAvg=Math.ceil((days*2)/employeesData.length);
-            const target=db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
-            if(pass.limitTarget&&pass.type!=='P'&&db[e.name].asignado.length>=target) return false;
-            if(pass.type==='TARGET_FF'&&(db[e.name].qF===0||db[e.name].asignado.filter(d=>isFF(d)).length>=db[e.name].qF)) return false;
-            if(pass.type==='TARGET_VP'&&(db[e.name].qV===0||db[e.name].asignado.filter(d=>isVP(d)).length>=db[e.name].qV)) return false;
-            return checkLegality(e.name, day, pass.minRest);
-        })
-        .map(e => {
-            const vec = scoreVector(e.name, day, pass);
-            return {name:e.name, vec, score:compositeScore(vec, pass)};
-        });
-
-    const withPareto = computeParetoFront(candidates);
-    withPareto.sort((a,b) => {
-        if(a.pareto && !b.pareto) return -1;
-        if(!a.pareto && b.pareto) return 1;
-        return b.score - a.score;
+    const targetAvg = Math.ceil(getTotalReq() / employeesData.length);
+    const candidates = employeesData.filter(e => {
+        if(db[e.name].asignado.includes(day)||db[e.name].noDisp.includes(day)) return false;
+        if(pass.type==='P'&&!db[e.name].prefs.includes(day)) return false;
+        const target=db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
+        if(pass.limitTarget&&pass.type!=='P'&&db[e.name].asignado.length>=target) return false;
+        if(pass.type==='TARGET_FF'&&(db[e.name].qF===0||db[e.name].asignado.filter(d=>isFF(d)).length>=db[e.name].qF)) return false;
+        if(pass.type==='TARGET_VP'&&(db[e.name].qV===0||db[e.name].asignado.filter(d=>isVP(d)).length>=db[e.name].qV)) return false;
+        return checkLegality(e.name, day, null, false, false);
+    }).map(e => {
+        const vec = scoreVector(e.name, day, pass);
+        return {name:e.name, vec, score:compositeScore(vec, pass)};
     });
-
+    const withPareto = computeParetoFront(candidates);
+    withPareto.sort((a,b) => { if(a.pareto && !b.pareto) return -1; if(!a.pareto && b.pareto) return 1; return b.score - a.score; });
     return withPareto.slice(0, BEAM_WIDTH);
 }
 
@@ -881,62 +1132,43 @@ function balanceQuantities(isManual = false) {
 
 
 
-
 function repairGaps(days, isManual = false) {
     const target = isManual ? 'asignadoManual' : 'asignado';
-    let madeChange = true;
-    let iter = 0;
+    let madeChange = true, iter = 0;
 
-    // Repetimos hasta que no haya más huecos que podamos salvar (máximo 150 intentos)
     while (madeChange && iter++ < 150) {
         madeChange = false;
-        
         for (let d = 1; d <= days; d++) {
             let workers = employeesData.filter(e => db[e.name][target].includes(d));
             
-            // ¡Alerta! Hemos encontrado un día con un hueco
-            if (workers.length < 2) {
-                
+            if (workers.length < getReq(d)) {
                 for (let e of employeesData) {
-                    if (workers.some(w => w.name === e.name)) continue;
-                    if (db[e.name].noDisp.includes(d)) continue;
+                    if (workers.some(w => w.name === e.name) || db[e.name].noDisp.includes(d)) continue;
                     
-                    // Comprobamos si su pareja le bloquea. Si es así, pasamos a otro.
                     let partnerBlocked = false;
-                    const partners = { "Oscar": "Gema", "Gema": "Oscar" };
-                    if (partners[e.name] && db[partners[e.name]]) {
-                        const pAssigned = db[partners[e.name]][target];
-                        if (pAssigned.includes(d) || pAssigned.includes(d - 1) || pAssigned.includes(d + 1)) {
-                            partnerBlocked = true;
+                    let incomp = db[e.name].incompatibles || [];
+                    for(let p of incomp) {
+                        if(db[p] && (db[p][target] || []).some(x => [d, d-1, d+1].includes(x))) {
+                            partnerBlocked = true; break;
                         }
                     }
                     if (partnerBlocked) continue;
 
-                    // Miramos qué turnos le impiden trabajar este día 17 (regla 48h)
                     let conflicts = db[e.name][target].filter(shift => Math.abs(shift - d) <= 2);
                     let tempShifts = db[e.name][target].filter(shift => Math.abs(shift - d) > 2);
                     
-                    // Si SOLO hay 1 turno bloqueándole el camino...
                     if (conflicts.length === 1) {
                         let conflictDay = conflicts[0];
-                        
-                        // ¿Sería legal si le quitamos ese turno conflictivo?
                         if (checkLegality(e.name, d, tempShifts, false, isManual)) {
-                            
-                            // Buscamos a un "Salvador" que se haga cargo de ese turno
                             let rescuer = employeesData.find(other => 
-                                other.name !== e.name &&
-                                !db[other.name][target].includes(conflictDay) &&
+                                other.name !== e.name && !db[other.name][target].includes(conflictDay) &&
                                 checkLegality(other.name, conflictDay, db[other.name][target], false, isManual)
                             );
-                            
                             if (rescuer) {
-                                // ¡Intercambio salvador realizado!
                                 db[e.name][target] = tempShifts;
-                                db[e.name][target].push(d); // Cubre el hueco
-                                db[rescuer.name][target].push(conflictDay); // Se lleva el marrón
-                                madeChange = true;
-                                break; // Rompemos el for para reevaluar todo el tablero
+                                db[e.name][target].push(d); 
+                                db[rescuer.name][target].push(conflictDay);
+                                madeChange = true; break;
                             }
                         }
                     }
@@ -950,20 +1182,18 @@ function repairGaps(days, isManual = false) {
 
 
 
-
 // ============================================================
 // 12. MOTOR PRINCIPAL PRO 
 // ============================================================
 async function generatePro() {
     addLog(`<span class="log-tag tag-pro">MOTOR</span> Iniciando generación IA + Rescate...`);
     const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-
     employeesData.forEach(e => db[e.name].asignado = []);
 
     employeesData.forEach(e => {
         db[e.name].prefs.forEach(pDay => {
             let numAsignados = employeesData.filter(emp => db[emp.name].asignado.includes(pDay)).length;
-            if (numAsignados < 2 && !db[e.name].asignado.includes(pDay) && checkLegality(e.name, pDay, null, true, false)) {
+            if (numAsignados < getReq(pDay) && !db[e.name].asignado.includes(pDay) && checkLegality(e.name, pDay, null, true, false)) {
                 db[e.name].asignado.push(pDay);
             }
         });
@@ -976,7 +1206,7 @@ async function generatePro() {
 
         for (let d = 1; d <= days; d++) {
             let count = employeesData.filter(e => db[e.name].asignado.includes(d)).length;
-            if (count < 2) {
+            if (count < getReq(d)) {
                 let cands = employeesData.filter(e => !db[e.name].asignado.includes(d) && checkLegality(e.name, d, null, true, false));
                 if (cands.length > 0 && cands.length < minCands) {
                     minCands = cands.length; bestDay = d; bestCands = cands;
@@ -999,18 +1229,13 @@ async function generatePro() {
                 if (cA !== cB) return cA - cB; 
                 return db[b.name].noDisp.length - db[a.name].noDisp.length;
             });
-
             db[bestCands[0].name].asignado.push(bestDay);
             keepGoing = true; 
         }
     }
-
-    // --- AQUÍ ENTRA EL ESCUADRÓN DE RESCATE ---
     repairGaps(days, false);
-
     balanceQuantities(false);
     orToolsOptimize(days, false);
-
     if (typeof jsConfetti !== 'undefined') jsConfetti.addConfetti();
     renderOutput();
     addLog(`<span class="log-tag tag-pro">FIN</span> Cuadrante generado.`);
@@ -1019,10 +1244,9 @@ async function generatePro() {
 
 function computeGlobalScore() {
     const days = new Date(currentDate.getFullYear(), currentDate.getMonth()+1, 0).getDate();
-    const targetAvg = Math.ceil((days*2)/employeesData.length);
-    let score = 0;
-    let covered = 0;
-    for(let d=1;d<=days;d++) { const c=countInDay(d); if(c>=2) covered++; }
+    const targetAvg = Math.ceil(getTotalReq()/employeesData.length);
+    let score = 0, covered = 0;
+    for(let d=1;d<=days;d++) { const c=countInDay(d); if(c>=getReq(d)) covered++; }
     score += covered*10;
     employeesData.forEach(e => {
         const target = db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
@@ -1047,20 +1271,16 @@ function setProgress(pct, phase, show=true){
 // ============================================================
 function resolveConflicts(){
     const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
-    const targetAvg=Math.ceil((days*2)/employeesData.length);
+    const targetAvg=Math.ceil(getTotalReq()/employeesData.length);
     for(let d=1;d<=days;d++){
         let assigned=employeesData.filter(e=>db[e.name].asignado.includes(d)).map(e=>e.name);
-        while(assigned.length>2){
+        while(assigned.length > getReq(d)){
             let mandatory=(lastManualAction.day===d)?lastManualAction.name:null;
             let removable=assigned.filter(n=>n!==mandatory);
             if(removable.length===0) removable=[...assigned];
             removable.sort((a,b)=>{
-                if(isFF(d)){
-                    return ((db[b].startingAccFF||0)+db[b].asignado.filter(x=>isFF(x)).length)-((db[a].startingAccFF||0)+db[a].asignado.filter(x=>isFF(x)).length);
-                }
-                if(isVP(d)){
-                    return ((db[b].startingAccVP||0)+db[b].asignado.filter(x=>isVP(x)).length)-((db[a].startingAccVP||0)+db[a].asignado.filter(x=>isVP(x)).length);
-                }
+                if(isFF(d)) return ((db[b].startingAccFF||0)+db[b].asignado.filter(x=>isFF(x)).length)-((db[a].startingAccFF||0)+db[a].asignado.filter(x=>isFF(x)).length);
+                if(isVP(d)) return ((db[b].startingAccVP||0)+db[b].asignado.filter(x=>isVP(x)).length)-((db[a].startingAccVP||0)+db[a].asignado.filter(x=>isVP(x)).length);
                 const tA=db[a].qTotal>0?db[a].qTotal:targetAvg;
                 const tB=db[b].qTotal>0?db[b].qTotal:targetAvg;
                 return (db[b].asignado.length-tB)-(db[a].asignado.length-tA);
@@ -1071,11 +1291,10 @@ function resolveConflicts(){
             addLog(`⚠️ Retirado <b>${pToMove}</b> del día ${d} por exceso de personal.`);
         }
     }
-    lastManualAction={name:null,day:null};
-    saveMonthState();
-    if(isManualMode) syncManualFromAuto();
-    renderOutput();
+    lastManualAction={name:null,day:null}; saveMonthState();
+    if(isManualMode) syncManualFromAuto(); renderOutput();
 }
+
 
 // ============================================================
 // 14. RENDER BEAM SEARCH TAB
@@ -1189,8 +1408,9 @@ function renderMemoryTab() {
     Object.keys(monthDataStore).forEach(k => {
         const [y, m] = k.split('-').map(Number);
         
-        // Buscamos en el pasado
-        if (y < curY || (y === curY && m < curM)) {
+        
+        // Ahora SOLO recogemos información si el año coincide exactamente con el actual
+        if (y === curY && m < curM) {
             const mData = monthDataStore[k];
             if (mData.isValidated) {
                 const dbM = mData.db || {};
@@ -1305,7 +1525,7 @@ function renderMemoryTab() {
             <td class="${mark(s.ff, ext.ff)}" style="color:#f59e0b;">${s.ff}</td>
             <td class="${mark(s.vp, ext.vp)}" style="color:#3b82f6;">${s.vp}</td>
             <td class="${mark(s.n, ext.n)}">${s.n}</td>
-            <td class="${mark(s.total, ext.total)}" style="font-weight:900; background:#f1f5f9;">${s.total}</td>
+            <td class="mem-total-cell ${mark(s.total, ext.total)}">${s.total}</td>
             <td class="${mark(s.avgF, ext.avgF)}">${s.avgF.toFixed(1)}</td>
             <td class="${mark(s.avgV, ext.avgV)}">${s.avgV.toFixed(1)}</td>
         </tr>`).join('');
@@ -1336,6 +1556,9 @@ function renderMemoryTab() {
             </div>
         </div>`;
     }).join('');
+    // (Añadir al final de renderMemoryTab)
+    renderMemoryChart(historyStats);
+    renderSpecialDatesTable();
 }
 
 // ============================================================
@@ -1359,20 +1582,14 @@ function renderOrtoolsStats(){
 // ============================================================
 function showParetoAnalysis() {
     document.getElementById('modalPareto').style.display='flex';
-    const canvas = document.getElementById('paretoChart');
-    const ctx = canvas.getContext('2d');
-    canvas.width = canvas.parentElement.offsetWidth - 40;
-    const W=canvas.width, H=canvas.height;
-    ctx.clearRect(0,0,W,H);
-
-    const days=new Date(currentDate.getFullYear(),currentDate.getMonth()+1,0).getDate();
-    const targetAvg=Math.ceil((days*2)/employeesData.length);
+    const canvas = document.getElementById('paretoChart'); const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.offsetWidth - 40; const W=canvas.width, H=canvas.height; ctx.clearRect(0,0,W,H);
+    const targetAvg=Math.ceil(getTotalReq()/employeesData.length);
 
     const points = employeesData.map(e => {
         const target=db[e.name].qTotal>0?db[e.name].qTotal:targetAvg;
         const equity=1-Math.abs(db[e.name].asignado.length-target)/Math.max(target,1);
-        const mem=patternMemory[e.name]||{totalFF:0,totalVP:0,months:1};
-        const mo=Math.max(mem.months,1);
+        const mem=patternMemory[e.name]||{totalFF:0,totalVP:0,months:1}; const mo=Math.max(mem.months,1);
         const curFF=(db[e.name].asignado||[]).filter(d=>isFF(d)).length;
         const totalFF=(db[e.name].startingAccFF||0)+curFF;
         const fairness=1-Math.abs(totalFF-(mem.totalFF/mo))/Math.max(mem.totalFF/mo,1);
@@ -1383,54 +1600,34 @@ function showParetoAnalysis() {
     for(let i=0;i<points.length;i++){
         for(let j=0;j<points.length;j++){
             if(i===j||dominated[i]) continue;
-            if(points[j].x>=points[i].x&&points[j].y>=points[i].y&&(points[j].x>points[i].x||points[j].y>points[i].y))
-                dominated[i]=true;
+            if(points[j].x>=points[i].x&&points[j].y>=points[i].y&&(points[j].x>points[i].x||points[j].y>points[i].y)) dominated[i]=true;
         }
     }
-
-    const pad=40;
-    ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,W,H);
-    ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1;
+    const pad=40; ctx.fillStyle='#f8fafc';ctx.fillRect(0,0,W,H); ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(pad,pad);ctx.lineTo(pad,H-pad);ctx.lineTo(W-pad,H-pad);ctx.stroke();
-    ctx.fillStyle='#64748b';ctx.font='10px sans-serif';
-    ctx.textAlign='center';ctx.fillText('Equidad Global',W/2,H-8);
+    ctx.fillStyle='#64748b';ctx.font='10px sans-serif'; ctx.textAlign='center';ctx.fillText('Equidad Global',W/2,H-8);
     ctx.save();ctx.translate(12,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('Fairness Histórico',0,0);ctx.restore();
 
     const front=points.filter((_,i)=>!dominated[i]).sort((a,b)=>a.x-b.x);
     if(front.length>1){
-        ctx.beginPath();
-        front.forEach((p,i)=>{
-            const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad);
-            if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
-        });
+        ctx.beginPath(); front.forEach((p,i)=>{ const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad); if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); });
         ctx.strokeStyle='rgba(16,185,129,.4)';ctx.lineWidth=2;ctx.setLineDash([6,3]);ctx.stroke();ctx.setLineDash([]);
     }
-
     points.forEach((p,i)=>{
-        const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad);
-        const r=dominated[i]?5:8;
-        ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2);
-        ctx.fillStyle=p.color;
-        ctx.globalAlpha=dominated[i]?0.5:1;
-        ctx.fill();
-        ctx.globalAlpha=1;
-        if(!dominated[i]){
-            ctx.strokeStyle='#10b981';ctx.lineWidth=2;ctx.stroke();
-        }
-        ctx.fillStyle='#1e293b';ctx.font=`${dominated[i]?8:9}px sans-serif`;
-        ctx.textAlign='center';
-        ctx.fillText(p.name.split(' ')[0],px,py-(r+3));
+        const px=pad+p.x*(W-2*pad), py=H-pad-p.y*(H-2*pad); const r=dominated[i]?5:8;
+        ctx.beginPath();ctx.arc(px,py,r,0,Math.PI*2); ctx.fillStyle=p.color; ctx.globalAlpha=dominated[i]?0.5:1; ctx.fill(); ctx.globalAlpha=1;
+        if(!dominated[i]){ ctx.strokeStyle='#10b981';ctx.lineWidth=2;ctx.stroke(); }
+        ctx.fillStyle='#1e293b';ctx.font=`${dominated[i]?8:9}px sans-serif`; ctx.textAlign='center'; ctx.fillText(p.name.split(' ')[0],px,py-(r+3));
     });
 
-    const details=document.getElementById('paretoDetails');
-    const paretoEmp=points.filter((_,i)=>!dominated[i]).map(p=>p.name);
-    details.innerHTML=`<b>🟢 Frente de Pareto (${paretoEmp.length} empleados):</b> ${paretoEmp.join(', ')}<br>
-    <span style="color:#64748b;">Estos empleados tienen la mejor combinación de equidad global y fairness histórico simultáneamente. Son los candidatos preferentes del motor.</span>`;
+    const details=document.getElementById('paretoDetails'); const paretoEmp=points.filter((_,i)=>!dominated[i]).map(p=>p.name);
+    details.innerHTML=`<b>🟢 Frente de Pareto (${paretoEmp.length} empleados):</b> ${paretoEmp.join(', ')}<br><span style="color:#64748b;">Estos empleados tienen la mejor combinación de equidad y fairness simultáneamente.</span>`;
 }
+
 function closeParetoModal(){document.getElementById('modalPareto').style.display='none';}
 
 // ============================================================
-// 18. RENDERIZADO VISUAL
+// 18. RENDERIZADO VISUAL (VERSIÓN DEFINITIVA)
 // ============================================================
 function renderOutput() {
     const y = currentDate.getFullYear(), m = currentDate.getMonth();
@@ -1474,6 +1671,9 @@ function renderOutput() {
         h += `<div class="cal-day ${isFF(d) ? 'is-festivo' : ''}">
             <span style="font-size:.72rem;font-weight:800;">${d}</span>
             <button class="btn-fest-toggle ${manualHolidays.includes(d) ? 'active' : ''}" onclick="toggleFestivo(${d})">F</button>
+            
+            <div style="position:absolute; top:4px; right:28px; font-size:.6rem; cursor:pointer; background:var(--primary-light); color:var(--primary); border:1px solid var(--primary); border-radius:4px; padding:2px 4px; font-weight:bold; z-index:10;" onclick="changeCoverage(${d})" title="Modificar personal necesario">👤 ${getReq(d)}</div>
+            
             <div style="margin-top:8px">${pills}</div>
         </div>`;
     }
@@ -1484,7 +1684,7 @@ function renderOutput() {
     let th = `<tr><th>Empleado</th>` + [...Array(dInM).keys()].map(i => {
         const d = i + 1;
         return `<th class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''}" style="cursor:pointer;" onclick="toggleFestivo(${d})">${d}</th>`;
-    }).join('') + `<th>Total</th><th>Visperas</th><th>Festivos</th></tr>`;
+    }).join('') + `<th>Total</th><th>Visp</th><th>Fest</th></tr>`;
 
     let tbAuto = employeesData.map(e => {
         let cells = "", vC = 0, fC = 0;
@@ -1513,15 +1713,16 @@ function renderOutput() {
     // --- 3.5 ALERTAS DE COBERTURA AUTOMÁTICA ---
     let conflict = false;
     for (let d = 1; d <= dInM; d++) {
-        if (countInDay(d) > 2) conflict = true;
+        // Antes ponía > 2, ahora es > getReq(d)
+        if (countInDay(d) > getReq(d)) conflict = true; 
     }
     const alertBoxAuto = document.getElementById('conflictAlert');
     if (alertBoxAuto) {
         alertBoxAuto.style.display = conflict ? 'flex' : 'none';
     }
 
-    // --- 4. TABLA MANUAL Y AUDITORÍA COMPLETA ---
-    if (isManualMode) {
+    // --- 4. TABLA MANUAL Y AUDITORÍA DINÁMICA ---
+    if (isManualMode || db.validatedMode === 'manual') {
         const tableManual = document.getElementById('matrixTableManual');
         let tbMan = employeesData.map(e => {
             let cells = "", vC = 0, fC = 0;
@@ -1533,7 +1734,11 @@ function renderOutput() {
 
                 let cont = assigned ? "G" : (isPref ? "P" : (isNo ? "X" : ""));
                 let cls = assigned ? "cell-imported" : (isNo ? "cell-no" : (isPref ? "cell-pref" : ""));
-                cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls}" 
+                
+                // Efecto visual de selección para el Intercambiador (Swap)
+                let swapCls = (swapState.active && swapState.emp === e.name && swapState.day === d) ? "cell-swap-selected" : "";
+
+                cells += `<td class="${isFF(d) ? 'col-festivo' : isVP(d) ? 'col-viernes' : ''} ${cls} ${swapCls}" 
                           style="cursor:pointer;" onclick="toggleFreeManualAsign('${e.name}',${d})">${cont}</td>`;
             }
             let curT = db[e.name].asignadoManual.length;
@@ -1548,40 +1753,51 @@ function renderOutput() {
         }).join('');
         if(tableManual) tableManual.innerHTML = th + tbMan;
 
-        // --- SISTEMA DE AUDITORÍA MANUAL ---
+        
+        // --- SISTEMA DE AUDITORÍA MANUAL DINÁMICO ---
         let warnings = [];
         for (let d = 1; d <= dInM; d++) {
+            let req = getReq(d); // ⬅️ Leemos lo que has configurado para hoy
             let workers = employeesData.filter(e => db[e.name].asignadoManual.includes(d)).map(e => e.name);
-            if (workers.length > 2) warnings.push(`Día ${d}: Exceso de personal (${workers.length}/2).`);
-            if (workers.length < 2) warnings.push(`Día ${d}: Falta personal (${workers.length}/2).`);
-            if (workers.includes("Oscar") && workers.includes("Gema")) warnings.push(`Día ${d}: Oscar y Gema asignados juntos.`);
+            
+            if (workers.length > req) warnings.push(`Día ${d}: Exceso de personal (${workers.length}/${req}).`);
+            if (workers.length < req) warnings.push(`Día ${d}: Falta personal (${workers.length}/${req}).`);
+            
+            // Incompatibles dinámicos el mismo día...
+            for (let i=0; i<workers.length; i++) {
+                for (let j=i+1; j<workers.length; j++) {
+                    let w1 = workers[i], w2 = workers[j];
+                    if ((db[w1].incompatibles || []).includes(w2)) {
+                        warnings.push(`Día ${d}: ⚡ Incompatibilidad grave (${w1} y ${w2} juntos).`);
+                    }
+                }
+            }
         }
 
         employeesData.forEach(e => {
             let myDays = db[e.name].asignadoManual || [];
+            let incomp = db[e.name].incompatibles || [];
             myDays.forEach(d => {
                 if (db[e.name].noDisp && db[e.name].noDisp.includes(d)) 
                     warnings.push(`<b>${e.name}</b>: Guardia el día ${d} pero tenía Indisponibilidad (X).`);
-                
                 if (myDays.includes(d + 1)) 
                     warnings.push(`<b>${e.name}</b>: Doblete detectado (días ${d} y ${d + 1}).`);
-                
                 if (myDays.includes(d + 2)) 
                     warnings.push(`<b>${e.name}</b>: Descanso de 48h insuficiente (días ${d} y ${d + 2}).`);
                 
                 let date = new Date(currentDate.getFullYear(), currentDate.getMonth(), d);
                 if (date.getDay() === 1 && myDays.includes(d - 2)) 
-                    warnings.push(`<b>${e.name}</b>: Lunes ${d} asignado tras trabajar el Sábado ${d - 2}.`);
+                    warnings.push(`<b>${e.name}</b>: Lunes ${d} tras Sábado ${d - 2}.`);
                 if (date.getDay() === 6 && myDays.includes(d + 2)) 
-                    warnings.push(`<b>${e.name}</b>: Sábado ${d} asignado trabajando el Lunes ${d + 2}.`);
+                    warnings.push(`<b>${e.name}</b>: Sábado ${d} trabajando Lunes ${d + 2}.`);
+                
+                // Incompatibles dinámicos días consecutivos
+                incomp.forEach(p => {
+                    if (db[p] && (db[p].asignadoManual || []).includes(d + 1)) {
+                        warnings.push(`⚡ Incompatibles consecutivos: ${e.name} (día ${d}) y ${p} (día ${d+1}).`);
+                    }
+                });
             });
-        });
-
-        let oscarDays = db["Oscar"] ? db["Oscar"].asignadoManual : [];
-        let gemaDays = db["Gema"] ? db["Gema"].asignadoManual : [];
-        oscarDays.forEach(d => {
-            if (gemaDays.includes(d + 1)) warnings.push(`Oscar (día ${d}) y Gema (día ${d+1}) en días consecutivos.`);
-            if (gemaDays.includes(d - 1)) warnings.push(`Gema (día ${d-1}) y Oscar (día ${d}) en días consecutivos.`);
         });
 
         warnings = [...new Set(warnings)];
@@ -1593,7 +1809,7 @@ function renderOutput() {
         }
     }
 
-// --- 5. ESTADO DE VISIBILIDAD Y VALIDACIÓN (RESETEO INTELIGENTE Y DESBLOQUEO) ---
+    // --- 5. ESTADO DE VISIBILIDAD, VALIDACIÓN Y BOTONES ---
     const btnManualToggle = document.getElementById('btn-manual-mode');
     if(btnManualToggle) {
         if(isManualMode) {
@@ -1601,7 +1817,7 @@ function renderOutput() {
             btnManualToggle.innerText = "🛠️ Ocultar Manual";
         } else {
             btnManualToggle.classList.remove('active');
-            btnManualToggle.innerText = "🛠️ Activar Manual (Clonar)";
+            btnManualToggle.innerText = "🛠️ Modo Manual";
         }
     }
 
@@ -1612,7 +1828,24 @@ function renderOutput() {
     const badgeA = document.getElementById('status-validated-auto');
     const btnGenerar = document.getElementById('btn-generar');
     const btnLimpiar = document.getElementById('btn-limpiar'); 
-    const manualActions = document.getElementById('manualActionButtons'); // <-- Búsqueda directa y segura por ID
+    const manualActions = document.getElementById('manualActionButtons');
+    const btnSwap = document.getElementById('btn-swap');
+
+    // Estado del botón Deshacer
+    updateUndoButton();
+
+    // Estado del botón Intercambiar (Swap)
+    if(btnSwap) {
+        if(swapState.active) {
+            btnSwap.style.background = "var(--purple)";
+            btnSwap.style.color = "white";
+            btnSwap.innerText = swapState.emp ? "👉 Selecciona el 2º Turno" : "👉 Selecciona el 1º Turno";
+        } else {
+            btnSwap.style.background = "white";
+            btnSwap.style.color = "var(--purple)";
+            btnSwap.innerText = "🔄 Intercambiar";
+        }
+    }
 
     if (isMonthValidated) {
         if(btnGenerar) btnGenerar.style.display = 'none';
@@ -1631,9 +1864,11 @@ function renderOutput() {
             pageManual.style.display = 'block';
             pageManual.classList.remove('hidden');
             if(btnValM) btnValM.style.display = 'none';
-            
-            // Ocultamos la botonera de acciones manuales con total seguridad
             if(manualActions) manualActions.style.display = 'none';
+            if (!document.getElementById('badge-manual')) {
+                const titleDiv = pageManual.querySelector('div > div');
+                if(titleDiv) titleDiv.innerHTML += `<br><span id="badge-manual" style="font-size:.72rem;font-weight:bold;color:var(--success);background:#dcfce7;padding:3px 8px;border-radius:6px;display:inline-block;margin-top:6px;">🔒 VALIDADO COMO OFICIAL</span>`;
+            }
         } else {
             pageAuto.style.display = 'block';
             pageManual.style.display = 'none';
@@ -1660,8 +1895,6 @@ function renderOutput() {
         if (isManualMode) {
             pageManual.style.display = 'block';
             pageManual.classList.remove('hidden');
-            
-            // Volvemos a mostrar la botonera al desbloquear
             if(manualActions) manualActions.style.display = 'flex';
         } else {
             pageManual.style.display = 'none';
@@ -1670,19 +1903,66 @@ function renderOutput() {
 
     if (typeof renderEmployees === "function") renderEmployees();
 }
+
+
+
 // ============================================================
 // 19. GESTIÓN EMPLEADOS
 // ============================================================
-function openAddEmployeeModal(){document.getElementById('modalAddEmp').style.display='flex';}
+// Función auxiliar para obtener un color que no esté en uso
+function getUniqueColor() {
+    const palette = [
+        "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#f43f5e", 
+        "#84cc16", "#0ea5e9", "#6366f1", "#d946ef", "#f97316", "#14b8a6", "#475569"
+    ];
+    // Colores usados actualmente
+    const usedColors = employeesData.map(e => e.color.toLowerCase());
+    // Buscamos el primero de la paleta que no esté usado
+    const availableColor = palette.find(c => !usedColors.includes(c.toLowerCase()));
+    
+    // Si todos están usados, genera uno aleatorio
+    return availableColor || "#" + Math.floor(Math.random()*16777215).toString(16);
+}
+
+function openAddEmployeeModal() {
+    const modal = document.getElementById('modalAddEmp');
+    const inputName = document.getElementById('newEmpName');
+    const inputColor = document.getElementById('newEmpColor');
+    
+    modal.style.display = 'flex';
+    
+    // Limpiamos el nombre anterior
+    inputName.value = "";
+    // Asignamos un color único automáticamente
+    inputColor.value = getUniqueColor();
+    
+    // MÉTODO 1: Auto-foco inmediato
+    setTimeout(() => {
+        inputName.focus();
+    }, 100);
+}
 function closeAddEmployeeModal(){document.getElementById('modalAddEmp').style.display='none';}
-function addEmployee(){
-    const name=document.getElementById('newEmpName').value.trim();
-    const color=document.getElementById('newEmpColor').value;
-    if(!name) return;
-    employeesData.push({name,color});
-    db[name]={name,color,noDisp:[],prefs:[],asignado:[],asignadoManual:[],qTotal:0,qV:0,qF:0,startingAccVP:0,startingAccFF:0};
-    patternMemory[name]={totalFF:0,totalVP:0,totalN:0,months:0};
-    closeAddEmployeeModal();saveMonthState();updateView();
+function addEmployee() {
+    const inputName = document.getElementById('newEmpName');
+    const name = inputName.value.trim();
+    const color = document.getElementById('newEmpColor').value;
+    
+    if (!name) return;
+    
+    employeesData.push({ name, color });
+    db[name] = {
+        name, color, noDisp: [], prefs: [], asignado: [], asignadoManual: [],
+        qTotal: 0, qV: 0, qF: 0, startingAccVP: 0, startingAccFF: 0
+    };
+    
+    if (!patternMemory[name]) {
+        patternMemory[name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0 };
+    }
+    
+    inputName.value = ""; // Limpiamos para la próxima vez
+    closeAddEmployeeModal();
+    saveMonthState();
+    updateView();
 }
 function removeEmployee(name){
     if(confirm(`¿Eliminar a ${name} permanentemente?`)){
@@ -1758,7 +2038,7 @@ function renderEmployees() {
     // 1. Sumar meses ANTERIORES validados
     Object.keys(monthDataStore).forEach(k => {
         const [y, m] = k.split('-').map(Number);
-        if (y < curY || (y === curY && m < curM)) {
+        if (y === curY && m < curM) {
             const mData = monthDataStore[k];
             if (mData.isValidated) {
                 const dbM = mData.db || {};
@@ -1806,16 +2086,26 @@ function renderEmployees() {
             db[e.name][target].forEach(d => { if (isFF(d)) curFF++; else if (isVP(d)) curVP++; }); 
         }
         
-        // ¡Aquí está el cambio! Usamos dynamicMemory en lugar de patternMemory
+        // Usamos dynamicMemory en lugar de patternMemory
         const mem = dynamicMemory[e.name]; 
+
+        // --- NUEVA LÓGICA DE INCOMPATIBILIDADES VISUALES ---
+        const incompList = db[e.name].incompatibles || [];
+        let incompBadge = '';
+        if (incompList.length > 0) {
+            incompBadge = `<span style="font-size:.65rem;font-weight:bold;background:#ffedd5;color:#ea580c;padding:2px 7px;border-radius:10px;width:max-content; border: 1px solid #fdba74;">⚡ Choca con: ${incompList.join(', ')}</span>`;
+        }
 
         return `
         <div class="emp-card" style="--emp-color:${e.color}">
-            
+                
             <div class="emp-header" style="align-items:flex-start; padding-right:0; margin-bottom:14px;">
                 <div style="display:flex; flex-direction:column; gap:6px;">
                     <span class="emp-name" style="line-height:1;">${e.name}</span>
-                    <span class="emp-blocked-badge" style="width:max-content;">🚫 ${db[e.name].noDisp.length} bloqueados</span>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <span class="emp-blocked-badge" style="width:max-content;">🚫 ${db[e.name].noDisp.length} bloqueados</span>
+                        ${incompBadge}
+                    </div>
                 </div>
                 <div style="display:flex; gap:6px;">
                     <button style="background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:4px 6px;cursor:pointer;font-size:0.9rem;" onclick="openEditEmployeeModal('${e.name}')" title="Editar Nombre y Color">✏️</button>
@@ -1831,9 +2121,8 @@ function renderEmployees() {
             
             <div class="section-title">🧠 Memoria Histórica (${mem.months} meses) RECUERDA VALIDAR CUADRANTES</div>
             <div class="input-group" style="grid-template-columns:repeat(3,1fr);font-size:.68rem;">
-			<div class="input-field"><label>Visperas Hist.</label><input type="text" value="${mem.totalVP}" disabled style="background:#dbeafe;color:#1e40af;"></div>
+                <div class="input-field"><label>Visperas Hist.</label><input type="text" value="${mem.totalVP}" disabled style="background:#dbeafe;color:#1e40af;"></div>
                 <div class="input-field"><label>Festivos Hist.</label><input type="text" value="${mem.totalFF}" disabled style="background:#fef3c7;color:#92400e;"></div>
-                
                 <div class="input-field"><label>L-J Hist.</label><input type="text" value="${mem.totalN}" disabled style="background:#f0fdf4;color:#166534;"></div>
             </div>
             
@@ -1844,9 +2133,10 @@ function renderEmployees() {
                 <div class="input-field"><label>Festivos</label><input type="number" value="${db[e.name].qF || 0}" onchange="db['${e.name}'].qF=parseInt(this.value)||0;saveMonthState();"></div>
             </div>
             
-            <div class="btn-actions-row">
+            <div class="btn-actions-row" style="grid-template-columns: 1fr 1fr 1fr;">
                 <button class="btn-action-pick" style="color:var(--danger)" onclick="openModal('${e.name}','NO')">🚫 Libranza</button>
                 <button class="btn-action-pick" style="color:var(--primary)" onclick="openModal('${e.name}','YES')">⭐ Petición</button>
+                <button class="btn-action-pick" style="color:#f59e0b" onclick="openIncompatModal('${e.name}')">⚡ Incomp (${incompList.length})</button>
             </div>
         </div>`;
     }).join('');
@@ -1939,11 +2229,38 @@ function showTab(t) {
     if (t === 'memory') renderMemoryTab();
 }
 
-function updateView(){
-    document.getElementById('monthDisplay').innerText=currentDate.toLocaleString('es-ES',{month:'long',year:'numeric'});
+function updateView() {
+    document.getElementById('monthDisplay').innerText = currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
+    
+    // MAGIA: Cada vez que cambias de mes en la flecha de arriba, la IA y los datos se reajustan a ese año concreto
+    rebuildYearlyPatternMemory(currentDate.getFullYear());
+    
     renderOutput();
     renderMemoryTab();
 }
+
+
+// ============================================================
+// 23. MODO OSCURO Y ANALÍTICA VISUAL (CHART.JS)
+// ============================================================
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    document.getElementById('btn-dark-mode').innerText = isDark ? "☀️" : "🌙";
+    localStorage.setItem('planificador_dark_mode', isDark);
+    
+    // Si el gráfico está visible, lo repintamos para que cambie el color del texto
+    if (window.memoryChartInstance) renderMemoryTab(); 
+}
+
+let memoryChartInstance = null;
+
+function renderMemoryChart(historyStats) {
+    // Hemos eliminado el gráfico de donut para limpiar la vista.
+    // Esta función queda vacía para no romper la ejecución.
+    return; 
+}
+
 
 // ============================================================
 // 20. LIMPIEZA Y EXPORTACIÓN
@@ -2170,35 +2487,24 @@ function importFromExcel(e) {
                 else if(v === "P") db[name].prefs.push(d);
             }
         });
+
+        // 🐛 4. ARREGLO DEL BUG: SINCRONIZAR COBERTURA DINÁMICA
+        dailyCoverage = {}; // Limpiamos la cobertura anterior para que no interfiera
+        for (let d = 1; d <= 31; d++) {
+            let count = employeesData.filter(e => db[e.name].asignado.includes(d)).length;
+            // Si el Excel tiene personal asignado este día, le enseñamos a la app que ESA es la nueva cobertura requerida
+            if (count > 0) {
+                dailyCoverage[d] = count;
+            }
+        }
         
         saveMonthState();
-        addLog("📥 Excel importado. Los datos anteriores se han sobrescrito con éxito.");
+        addLog("📥 Excel importado y Cobertura sincronizada. Los datos se han sobrescrito con éxito.");
         updateView();
     };
     reader.readAsArrayBuffer(e.target.files[0]);
     e.target.value = ''; // Fundamental para que te deje volver a cargar el mismo archivo si lo cambias
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 async function exportToPDF() {
     // 1. CONTROL DE VALIDACIÓN
@@ -2211,9 +2517,8 @@ async function exportToPDF() {
     const pdf = new jsPDF('l', 'mm', 'a4');
     const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase();
     
-    addLog("Generando PDF de alta definición (sin logs)...");
+    addLog("Generando PDF de alta definición (Formato Completo)...");
 
-    // Elementos a capturar y elementos a ocultar
     const page1 = document.getElementById('pdf-page-1');
     const page2Auto = document.getElementById('pdf-page-2');
     const page2Manual = document.getElementById('pdf-page-manual');
@@ -2221,67 +2526,597 @@ async function exportToPDF() {
 
     // Lista de selectores de cosas que NO queremos en el PDF
     const selectorsToHide = [
-        '#auditLog', 
-        '#ortoolsStats', 
-        '.btn-group', 
-        'button', 
-        '#conflictAlert', 
-        '#conflictAlertManual',
-        '.btn-fest-toggle'
+        '#auditLog', '#ortoolsStats', '.btn-group', 'button', 
+        '#conflictAlert', '#conflictAlertManual', '.btn-fest-toggle'
     ];
 
-    // Función interna para ocultar/mostrar elementos
     const setUIElementsVisibility = (visible) => {
         selectorsToHide.forEach(selector => {
             document.querySelectorAll(selector).forEach(el => {
-                el.style.opacity = visible ? "1" : "0"; // Usamos opacity para no romper el layout
+                el.style.opacity = visible ? "1" : "0";
             });
         });
         document.getElementById('pdf-title-1').style.display = visible ? 'none' : 'block';
     };
 
+    const wasDarkMode = document.body.classList.contains('dark-mode');
+
     try {
-        // OCULTAMOS LOS LOGS Y BOTONES
+        if (wasDarkMode) document.body.classList.remove('dark-mode');
         setUIElementsVisibility(false);
         document.getElementById('pdf-title-1').innerText = monthYear + " - CUADRANTE OFICIAL";
 
-        // CAPTURA 1: Calendario
-        // Subimos scale a 2.0 para eliminar el efecto borroso (Full HD)
-        const canvas1 = await html2canvas(page1, { 
-            scale: 2.0, 
+        // CONFIGURACIÓN DE CAPTURA PARA EVITAR RECORTES
+        const captureOptions = {
+            scale: 2.0,
             useCORS: true,
-            backgroundColor: "#ffffff"
-        });
-        
-        // Calidad 0.85 para mantener nitidez extrema sin pesar demasiado
+            backgroundColor: "#ffffff",
+            // ESTA ES LA CLAVE: Forzamos un ancho virtual grande en el clon para que nada se corte
+            onclone: (clonedDoc) => {
+                const p1 = clonedDoc.getElementById('pdf-page-1');
+                const p2 = clonedDoc.getElementById(officialCard.id);
+                
+                // Forzamos a los contenedores a expandirse totalmente en el clon
+                if (p1) p1.style.width = "1600px";
+                if (p2) {
+                    p2.style.width = "1600px";
+                    // Buscamos el wrapper de la tabla y quitamos el scroll para que se vea entera
+                    const wrapper = p2.querySelector('.matrix-wrapper');
+                    if (wrapper) {
+                        wrapper.style.overflow = "visible";
+                        wrapper.style.width = "auto";
+                    }
+                }
+            }
+        };
+
+        // CAPTURA 1: Calendario
+        const canvas1 = await html2canvas(page1, captureOptions);
         const imgData1 = canvas1.toDataURL('image/jpeg', 0.85);
         pdf.addImage(imgData1, 'JPEG', 10, 15, 277, 0, undefined, 'MEDIUM');
 
         pdf.addPage();
 
         // CAPTURA 2: Cuadrante Validado
-        const canvas2 = await html2canvas(officialCard, { 
-            scale: 2.0, 
-            useCORS: true,
-            backgroundColor: "#ffffff"
-        });
-        
+        const canvas2 = await html2canvas(officialCard, captureOptions);
         const imgData2 = canvas2.toDataURL('image/jpeg', 0.85);
         pdf.addImage(imgData2, 'JPEG', 10, 15, 277, 0, undefined, 'MEDIUM');
 
-        // Guardar el archivo
         pdf.save(`Cuadrante_Oficial_${monthYear.replace(" ", "_")}.pdf`);
-        addLog("✅ PDF de alta nitidez exportado.");
+        addLog("✅ PDF exportado correctamente (Formato Completo).");
 
     } catch (error) {
         console.error("Error en PDF:", error);
         addLog("❌ Error al generar el PDF.");
     } finally {
-        // RESTAURAMOS LA VISIBILIDAD DE LOS LOGS Y BOTONES
         setUIElementsVisibility(true);
+        if (wasDarkMode) document.body.classList.add('dark-mode');
+    }
+}
+// ============================================================
+// 21. COPIAS DE SEGURIDAD (BACKUP)
+// ============================================================
+function exportBackup() {
+    // 1. Nos aseguramos de guardar los cambios más recientes del mes actual
+    saveMonthState();
+    
+    // 2. Empaquetamos toda la base de datos y la memoria histórica
+    const backupData = {
+        data: monthDataStore,
+        memory: patternMemory,
+        timestamp: new Date().toISOString()
+    };
+    
+    // 3. Creamos el archivo JSON y forzamos su descarga
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    
+    const date = new Date();
+    const dateString = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    
+    downloadAnchorNode.setAttribute("download", `Backup_Planificador_${dateString}.json`);
+    document.body.appendChild(downloadAnchorNode); 
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    
+    addLog("💾 Copia de seguridad exportada con éxito.");
+}
+
+function restoreBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const backup = JSON.parse(e.target.result);
+            
+            // Verificamos que el archivo sea válido
+            if (!backup.data || !backup.memory) {
+                throw new Error("El archivo no parece ser un Backup válido del planificador.");
+            }
+
+            if (confirm("⚠️ ATENCIÓN: Estás a punto de restaurar un Backup.\n\nEsto sobreescribirá TODOS los cuadrantes, empleados y memoria actuales de tu navegador.\n\n¿Deseas continuar?")) {
+                
+                // 1. Sobreescribimos la memoria RAM del programa
+                monthDataStore = backup.data;
+                patternMemory = backup.memory;
+                
+                // 2. Sobreescribimos la memoria Caché del navegador
+                localStorage.setItem('planificador_data', JSON.stringify(monthDataStore));
+                localStorage.setItem('planificador_memory', JSON.stringify(patternMemory));
+                
+                // 🐛 ARREGLADO: Magia de Teletransporte al mes más reciente del backup
+                const keys = Object.keys(monthDataStore);
+                if (keys.length > 0) {
+                    keys.sort((a, b) => {
+                        const [yA, mA] = a.split('-').map(Number);
+                        const [yB, mB] = b.split('-').map(Number);
+                        if (yA !== yB) return yA - yB;
+                        return mA - mB;
+                    });
+                    const latestKey = keys[keys.length - 1]; // Cogemos el último mes guardado
+                    const [year, month] = latestKey.split('-').map(Number);
+                    
+                    currentDate = new Date(year, month, 1); // Cambiamos la fecha de la pantalla
+                }
+                
+                // 3. Recargamos la interfaz para mostrar los datos restaurados
+                loadMonthState();
+                updateView();
+                
+                alert("✅ Copia de seguridad restaurada correctamente.");
+                addLog(`📂 Backup restaurado. Viajando al mes: ${document.getElementById('monthDisplay').innerText}`);
+            }
+        } catch (error) {
+            alert("❌ Error al leer el archivo de Backup: " + error.message);
+        } finally {
+            // Reseteamos el input file por si el usuario quiere volver a cargar el mismo archivo
+            event.target.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
+
+// ============================================================
+// 22. REGLAS DINÁMICAS (RANGOS E INCOMPATIBILIDADES)
+// ============================================================
+function applyDateRange() {
+    let start = parseInt(document.getElementById('rangeStart').value);
+    let end = parseInt(document.getElementById('rangeEnd').value);
+    const dInM = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    
+    if (isNaN(start) || isNaN(end) || start < 1 || end > dInM || start > end) {
+        return alert("⚠️ Por favor, introduce un rango de días válido para este mes.");
+    }
+    
+    for (let d = start; d <= end; d++) {
+        togglePickerDay(d, true); // Aplica el cambio (Rojo o Azul) de forma automática
+    }
+    
+    document.getElementById('rangeStart').value = '';
+    document.getElementById('rangeEnd').value = '';
+}
+
+function openIncompatModal(empName) {
+    document.getElementById('modalIncompat').style.display = 'flex';
+    document.getElementById('incompatName').innerText = `⚡ ${empName}`;
+    let list = document.getElementById('incompatList');
+    list.innerHTML = '';
+    
+    let myIncomp = db[empName].incompatibles || [];
+    
+    employeesData.forEach(other => {
+        if(other.name !== empName) {
+            let checked = myIncomp.includes(other.name) ? 'checked' : '';
+            list.innerHTML += `
+            <label style="display:flex; align-items:center; gap:8px; padding:8px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; margin-bottom:6px; cursor:pointer; transition:0.2s;">
+                <input type="checkbox" value="${other.name}" ${checked} onchange="toggleIncompat('${empName}', '${other.name}', this.checked)" style="transform:scale(1.2);">
+                <span style="font-weight:bold; font-size:0.85rem; color:#475569;">${other.name}</span>
+            </label>`;
+        }
+    });
+}
+
+
+// --- FUNCIONES DEL MODAL IA ---
+function openAIModal() {
+    document.getElementById('slider-pref').value = aiWeights.pref;
+    document.getElementById('valAI-pref').innerText = aiWeights.pref;
+    document.getElementById('slider-equity').value = aiWeights.equity;
+    document.getElementById('valAI-equity').innerText = aiWeights.equity;
+    document.getElementById('slider-spacing').value = aiWeights.spacing;
+    document.getElementById('valAI-spacing').innerText = aiWeights.spacing;
+    document.getElementById('slider-memory').value = aiWeights.memory;
+    document.getElementById('valAI-memory').innerText = aiWeights.memory;
+    document.getElementById('modalAI').style.display = 'flex';
+}
+
+function closeAIModal() { document.getElementById('modalAI').style.display = 'none'; }
+
+function saveAIWeights() {
+    aiWeights.pref = parseInt(document.getElementById('slider-pref').value);
+    aiWeights.equity = parseInt(document.getElementById('slider-equity').value);
+    aiWeights.spacing = parseInt(document.getElementById('slider-spacing').value);
+    aiWeights.memory = parseInt(document.getElementById('slider-memory').value);
+    saveMonthState();
+    closeAIModal();
+    addLog(`⚙️ Parámetros de la IA actualizados. P:${aiWeights.pref} | E:${aiWeights.equity} | S:${aiWeights.spacing} | M:${aiWeights.memory}`);
+}
+
+
+
+function toggleIncompat(emp, other, isChecked) {
+    if(!db[emp].incompatibles) db[emp].incompatibles = [];
+    if(!db[other].incompatibles) db[other].incompatibles = [];
+    
+    // Incompatibilidad bidireccional (Si yo no trabajo contigo, tú no trabajas conmigo)
+    if(isChecked) {
+        if(!db[emp].incompatibles.includes(other)) db[emp].incompatibles.push(other);
+        if(!db[other].incompatibles.includes(emp)) db[other].incompatibles.push(emp);
+    } else {
+        db[emp].incompatibles = db[emp].incompatibles.filter(n => n !== other);
+        db[other].incompatibles = db[other].incompatibles.filter(n => n !== emp);
+    }
+    saveMonthState();
+}
+
+function closeIncompatModal() { 
+    document.getElementById('modalIncompat').style.display = 'none'; 
+    renderOutput(); // ⬅️ LA MAGIA: Le decimos a la app que redibuje toda la pantalla
+}
+
+
+// ============================================================
+// 24. EFECTO CASCADA (RECALCULAR FUTURO POR AÑOS)
+// ============================================================
+function propagateAccumulators() {
+    const keys = Object.keys(monthDataStore).sort((a, b) => {
+        const [yA, mA] = a.split('-').map(Number);
+        const [yB, mB] = b.split('-').map(Number);
+        if (yA !== yB) return yA - yB;
+        return mA - mB;
+    });
+
+    for (let i = 0; i < keys.length - 1; i++) {
+        const currentKey = keys[i];
+        const nextKey = keys[i + 1];
+
+        const currentMonthData = monthDataStore[currentKey];
+        const nextMonthData = monthDataStore[nextKey];
+
+        if (currentMonthData.isValidated) {
+            const holidays = currentMonthData.holidays || [];
+            const [y, m] = currentKey.split('-').map(Number);
+            const [nextY, nextM] = nextKey.split('-').map(Number); // NUEVO: Extraemos el año destino
+
+            nextMonthData.employees.forEach(nextEmp => {
+                const curEmpData = currentMonthData.db ? currentMonthData.db[nextEmp.name] : null;
+                
+                if (curEmpData && curEmpData.asignado) {
+                    
+                    // MAGIA DE AÑO: Si pasamos a un año distinto, la mochila arranca a 0
+                    if (y !== nextY) {
+                        nextEmp.startingAccFF = 0;
+                        nextEmp.startingAccVP = 0;
+                    } else {
+                        // Mismo año: Sumamos los datos como siempre
+                        let mFF = 0, mVP = 0;
+                        curEmpData.asignado.forEach(d => {
+                            if (isFFContext(d, holidays, y, m)) mFF++;
+                            else if (isVPContext(d, holidays, y, m)) mVP++;
+                        });
+                        nextEmp.startingAccFF = (curEmpData.startingAccFF || 0) + mFF;
+                        nextEmp.startingAccVP = (curEmpData.startingAccVP || 0) + mVP;
+                    }
+
+                    // Guardamos la información
+                    if (nextMonthData.db && nextMonthData.db[nextEmp.name]) {
+                        nextMonthData.db[nextEmp.name].startingAccFF = nextEmp.startingAccFF;
+                        nextMonthData.db[nextEmp.name].startingAccVP = nextEmp.startingAccVP;
+                    }
+                }
+            });
+        }
+    }
+    localStorage.setItem('planificador_data', JSON.stringify(monthDataStore));
+}
+
+
+// ============================================================
+// 25. COPIAR RESUMEN AL PORTAPAPELES
+// ============================================================
+function copyToClipboard() {
+    // 1. Verificamos que haya un cuadrante oficial validado
+    if (!isMonthValidated) {
+        alert("⚠️ ATENCIÓN: El cuadrante no ha sido VALIDADO.\n\nPor favor, pulsa '✅ Validar' antes de copiar el resumen.");
+        return;
+    }
+
+    const monthYear = document.getElementById('monthDisplay').innerText.toUpperCase();
+    
+    // 2. Cabecera del mensaje
+    let text = `🗓️ *CUADRANTE OFICIAL | ${monthYear}* 🗓️\n\n`;
+
+    // 3. Recorremos los empleados extrayendo la info del campo 'asignado'
+    employeesData.forEach(e => {
+        const info = db[e.name];
+        if (info && info.asignado && info.asignado.length > 0) {
+            let days = [...info.asignado];
+            days.sort((a, b) => a - b);
+            text += `👤 *${e.name}* (${days.length} turnos):\n👉 Días: ${days.join(', ')}\n\n`;
+        }
+    });
+
+
+    // 4. Ejecutar el copiado
+    navigator.clipboard.writeText(text).then(() => {
+        addLog("📋 Resumen de cuadrante copiado al portapapeles.");
+        // Opcional: Una pequeña alerta de confirmación
+        alert("✅ Cuadrante copiado al portapapeles. Ya puedes pegarlo donde quieras.");
+    }).catch(err => {
+        console.error("Error al copiar:", err);
+        alert("❌ Error al copiar al portapapeles.");
+    });
+}
+
+function openExportModal() {
+    // Verificamos si está validado antes de abrir el menú para ahorrar clics al usuario
+    if (!isMonthValidated) {
+        return alert("⚠️ El cuadrante debe estar VALIDADO para poder exportarlo o compartirlo.");
+    }
+    document.getElementById('modalExport').style.display = 'flex';
+}
+
+function closeExportModal() {
+    document.getElementById('modalExport').style.display = 'none';
+}
+
+function openDataModal() {
+    document.getElementById('modalData').style.display = 'flex';
+}
+
+function closeDataModal() {
+    document.getElementById('modalData').style.display = 'none';
+}
+
+
+// ============================================================
+// SELECTOR RÁPIDO DE MES Y AÑO
+// ============================================================
+function openMonthPicker() {
+    const modal = document.getElementById('modalMonthPicker');
+    const yearSelect = document.getElementById('pickerYear');
+    const monthGrid = document.getElementById('pickerMonthGrid');
+    
+    // 1. Rellenar Años (Rango de 10 años alrededor del actual)
+    yearSelect.innerHTML = '';
+    const currentYear = currentDate.getFullYear();
+    for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = y;
+        if (y === currentYear) opt.selected = true;
+        yearSelect.appendChild(opt);
+    }
+
+    // 2. Rellenar Meses
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    monthGrid.innerHTML = '';
+    months.forEach((mName, index) => {
+        const btn = document.createElement('button');
+        btn.innerText = mName;
+        btn.className = 'tab-btn'; // Reutilizamos estilo de pestañas
+        btn.style.padding = "10px 5px";
+        if (index === currentDate.getMonth()) {
+            btn.style.background = "var(--primary)";
+            btn.style.color = "white";
+        }
+        btn.onclick = () => selectMonthPicker(index);
+        monthGrid.appendChild(btn);
+    });
+
+    modal.style.display = 'flex';
+}
+
+function closeMonthPicker() {
+    document.getElementById('modalMonthPicker').style.display = 'none';
+}
+
+function selectMonthPicker(monthIndex) {
+    const selectedYear = parseInt(document.getElementById('pickerYear').value);
+    
+    // 1. Guardamos el estado del mes antiguo
+    saveMonthState();
+    
+    // 2. Cambiamos la fecha global
+    currentDate = new Date(selectedYear, monthIndex, 1);
+    
+    // 3. Cargamos el nuevo estado y refrescamos
+    closeMonthPicker();
+    loadMonthState();
+    updateView();
+    
+    addLog(`🚀 Salto temporal a: ${document.getElementById('monthDisplay').innerText}`);
+}
+
+// ============================================================
+// COBERTURA DINÁMICA
+// ============================================================
+function getReq(d) { 
+    // Si no hemos especificado nada para este día, asume que son 2 personas
+    return dailyCoverage[d] !== undefined ? dailyCoverage[d] : 2; 
+}
+
+function getTotalReq() {
+    const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    let sum = 0;
+    for (let d = 1; d <= days; d++) sum += getReq(d);
+    return sum; // Total de guardias que hay que rellenar en el mes
+}
+
+function changeCoverage(d) {
+    if (isMonthValidated) return alert("⚠️ Mes validado. Desbloquéalo primero para cambiar la cobertura.");
+    let current = getReq(d);
+    let val = prompt(`¿Cuántas personas necesitas el día ${d}?\n\n(Escribe 0 si ese día no hay servicio)`, current);
+    
+    if (val !== null) {
+        let parsed = parseInt(val);
+        if (!isNaN(parsed) && parsed >= 0) {
+            dailyCoverage[d] = parsed;
+            saveMonthState();
+            renderOutput();
+            addLog(`⚙️ Cobertura del día ${d} ajustada a: ${parsed} personas.`);
+        }
     }
 }
 
+// ============================================================
+// 26. GESTIÓN DE PLANTILLAS (MENÚ EMPLEADOS)
+// ============================================================
+function openManageEmpModal() {
+    document.getElementById('modalManageEmp').style.display = 'flex';
+}
+
+function closeManageEmpModal() {
+    document.getElementById('modalManageEmp').style.display = 'none';
+}
+
+function copyEmployeesFromPreviousMonth() {
+    // 1. Calculamos cuál fue el mes anterior al que estamos viendo
+    let prevDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    let prevKey = getMonthKey(prevDate);
+    
+    let prevData = monthDataStore[prevKey];
+    if (!prevData || !prevData.employees || prevData.employees.length === 0) {
+        alert("⚠️ No se han encontrado datos del mes anterior guardados en la memoria.");
+        return;
+    }
+
+    let addedCount = 0;
+
+    // 2. Recorremos la plantilla del mes anterior
+    prevData.employees.forEach(prevEmp => {
+        // Si el empleado no existe en este mes, lo añadimos
+        if (!employeesData.some(e => e.name === prevEmp.name)) {
+            employeesData.push({ name: prevEmp.name, color: prevEmp.color });
+            
+            // 3. Creamos su ficha "limpia" (Sin Peticiones, ni Libranzas, ni Turnos)
+            // Pero le mantenemos sus objetivos y sus incompatibilidades si las tuviera
+            let prevDb = prevData.db && prevData.db[prevEmp.name] ? prevData.db[prevEmp.name] : {};
+            
+            db[prevEmp.name] = {
+                name: prevEmp.name, 
+                color: prevEmp.color, 
+                noDisp: [], // LIMPIO
+                prefs: [],  // LIMPIO
+                asignado: [], // LIMPIO
+                asignadoManual: [], // LIMPIO
+                qTotal: prevDb.qTotal || 0, 
+                qV: prevDb.qV || 0, 
+                qF: prevDb.qF || 0, 
+                startingAccVP: prevDb.startingAccVP || 0, 
+                startingAccFF: prevDb.startingAccFF || 0,
+                incompatibles: prevDb.incompatibles ? [...prevDb.incompatibles] : []
+            };
+            
+            if (!patternMemory[prevEmp.name]) {
+                patternMemory[prevEmp.name] = { totalFF: 0, totalVP: 0, totalN: 0, months: 0 };
+            }
+            addedCount++;
+        }
+    });
+
+    closeManageEmpModal();
+    
+    // 4. Refrescamos y avisamos
+    if (addedCount > 0) {
+        saveMonthState();
+        updateView();
+        addLog(`👥 Plantilla: ${addedCount} empleados copiados de ${prevDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' })}.`);
+        alert(`✅ Se han copiado ${addedCount} empleados del mes anterior (Plantilla limpia, sin guardias ni libranzas).`);
+    } else {
+        alert("ℹ️ Todos los empleados del mes anterior ya estaban presentes en la plantilla de este mes.");
+    }
+}
+
+// ============================================================
+// 27. TABLA DE FECHAS ESPECIALES (NAVIDADES)
+// ============================================================
+function renderSpecialDatesTable() {
+    const table = document.getElementById('specialDatesTable');
+    if (!table) return;
+
+    const currentYear = currentDate.getFullYear();
+    const prevYear = currentYear - 1;
+
+    // Claves para buscar en la base de datos
+    const keyJan = `${currentYear}-0`;    // Enero = Mes 0
+    const keyDecPrev = `${prevYear}-11`;  // Diciembre = Mes 11
+
+    const dataJan = monthDataStore[keyJan];
+    const dataDecPrev = monthDataStore[keyDecPrev];
+
+    // Función interna para extraer los nombres de las píldoras
+    const getWorkers = (monthData, day) => {
+        if (!monthData || !monthData.db) return '<span style="color:#94a3b8; font-style:italic;">Sin datos guardados</span>';
+        
+        let workers = [];
+        // Buscamos en todos los empleados guardados en ese mes
+        Object.keys(monthData.db).forEach(empName => {
+            const empInfo = monthData.db[empName];
+            // Miramos si ese día está en su lista de asignados
+            if (empInfo.asignado && empInfo.asignado.includes(day)) {
+                workers.push(`<span class="pill" style="background:${empInfo.color}; display:inline-block; margin:2px;">${empName}</span>`);
+            }
+        });
+        
+        return workers.length > 0 ? workers.join("") : '<span style="color:#94a3b8;">Nadie asignado</span>';
+    };
+
+    let html = `
+        <tr>
+            <th style="background:var(--purple); color:white;">Fecha Crítica</th>
+            <th style="background:var(--purple); color:white;">Referencia</th>
+            <th style="background:var(--purple); color:white;">¿Quién trabajó?</th>
+        </tr>
+        <tr>
+            <td><b>✨ 6 de Enero</b></td>
+            <td>Reyes ${currentYear}</td>
+            <td>${getWorkers(dataJan, 6)}</td>
+        </tr>
+        <tr>
+            <td><b>🎅 25 de Diciembre</b></td>
+            <td>Navidad ${prevYear}</td>
+            <td>${getWorkers(dataDecPrev, 25)}</td>
+        </tr>
+        <tr>
+            <td><b>🍇 31 de Diciembre</b></td>
+            <td>Nochevieja ${prevYear}</td>
+            <td>${getWorkers(dataDecPrev, 31)}</td>
+        </tr>
+    `;
+    table.innerHTML = html;
+}
+
+function toggleSpecialDates() {
+    const container = document.getElementById('specialDatesContainer');
+    const btn = document.getElementById('btnToggleSpecial');
+    const isHidden = container.style.display === 'none';
+    
+    // Cambiamos la visibilidad
+    container.style.display = isHidden ? 'block' : 'none';
+    
+    // Cambiamos el texto del botón para dar feedback
+    btn.innerHTML = isHidden ? "❌ Cerrar Panel" : "🎄 Fechas Especiales";
+    
+    // Si lo abrimos, nos aseguramos de que la tabla esté actualizada
+    if (isHidden) {
+        renderSpecialDatesTable();
+    }
+}
 
 init();
 </script>
