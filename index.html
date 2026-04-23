@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Planificador PRO — Beam Search · Pareto · Memoria · OR-Tools</title>
+    <title>Planificador Guardias</title>
+    <link rel="icon" type="image/png" href="sescam_logo.png">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -408,6 +409,31 @@
     </div>
 </div>
 
+<div id="modalRules" class="modal" style="z-index: 1050;">
+    <div class="modal-content" style="width:480px; max-height:85vh; overflow-y:auto;">
+        <h3 style="margin:0 0 15px 0; color:var(--primary); display:flex; align-items:center; gap:8px;">📜 Reglas del Sistema</h3>
+        <p style="font-size:0.8rem; color:#64748b; margin-bottom:15px;">Estas son las directrices de obligado cumplimiento que el motor y el auditor manual respetan siempre:</p>
+        
+        <ul style="font-size:0.82rem; color:var(--text); padding-left:20px; line-height:1.6; display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
+            <li><b>Descanso de 48h:</b> Un empleado no puede tener guardias en días consecutivos, ni tampoco con un solo día de separación (Ej: No puede hacer los días 1 y 2, ni tampoco 1 y 3).</li>
+            <li><b>Regla Sábado/Lunes:</b> Prohibido trabajar el lunes si se ha trabajado el sábado anterior. Prohibido trabajar el sábado si se va a trabajar el lunes siguiente.</li>
+            <li><b>Incompatibilidades (⚡):</b> Empleados marcados como incompatibles no pueden coincidir el mismo día, <b>ni tampoco en días consecutivos</b>.</li>
+            <li><b>Indisponibilidad (🚫):</b> Las libranzas marcadas con "X" se respetan de manera absoluta.</li>
+            <li><b>Objetivos Máximos:</b> La IA nunca asignará más turnos totales, de festivos, o de vísperas de los que tiene como "tope" en su ficha el empleado.</li>
+            <li><b>Cobertura Dinámica (👤):</b> Se asignará el número exacto de personas requeridas por día según lo indique el selector del calendario.</li>
+            <li><b>Reset Anual de Acumulados:</b> Al pasar al 1 de Enero, las mochilas matemáticas de acumulación de Festivos y Vísperas se reinician.</li>
+        </ul>
+
+        <h4 style="margin:0 0 10px 0; color:var(--purple); font-size:0.85rem;">🎯 Directrices de IA (Soft-Constraints)</h4>
+        <ul style="font-size:0.82rem; color:var(--text); padding-left:20px; line-height:1.6; display:flex; flex-direction:column; gap:10px; margin-bottom:0;">
+            <li><b>Peticiones (⭐):</b> El motor prioriza cumplir las peticiones basándose en el peso de los ajustes y sin romper las reglas obligatorias de arriba.</li>
+            <li><b>Justicia Histórica:</b> Se analiza a lo largo de todo el año qué empleados han hecho menos Festivos/Vísperas para asignarles los nuevos turnos, buscando un reparto equitativo.</li>
+        </ul>
+
+        <button style="width:100%; padding:12px; margin-top:20px; background:var(--primary); color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold;" onclick="closeRulesModal()">Entendido</button>
+    </div>
+</div>
+
 <div id="modalAI" class="modal">
     <div class="modal-content" style="width: 350px;">
         <h3 style="margin:0 0 10px 0; color:#1e293b;">⚙️ Personalidad de la IA</h3>
@@ -445,6 +471,13 @@
             <button style="flex:1; padding:11px; background:#e2e8f0; border:none; border-radius:9px; cursor:pointer; font-weight:bold; color:#475569;" onclick="closeAIModal()">Cancelar</button>
             <button style="flex:1; padding:11px; background:var(--primary); color:white; border:none; border-radius:9px; cursor:pointer; font-weight:bold;" onclick="saveAIWeights()">Guardar</button>
         </div>
+
+        <button style="width:100%; padding:10px; margin-top:15px; background:#f8fafc; border:1px solid var(--border); border-radius:9px; cursor:pointer; font-weight:bold; color:#475569; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="openRulesModal()">
+            📜 Ver reglas aplicadas actualmente
+        </button>
+		<button style="width:100%; padding:10px; margin-top:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:9px; cursor:pointer; font-weight:bold; color:#166534; display:flex; justify-content:center; align-items:center; gap:8px;" onclick="window.open('https://github.com/pgarciafer/guardias/raw/main/Manual%20de%20Usuario%20Planificador%20de%20Guardias.pdf', '_blank')">
+            📖 Descargar Manual de Usuario
+        </button>
     </div>
 </div>
 
@@ -859,7 +892,6 @@ function autoCompleteManual() {
     if (isMonthValidated) return;
     addLog(`<span class="log-tag tag-pro" style="background:var(--primary)">MANUAL</span> Autocompletando IA + Rescate...`);
     const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-    let assignedSomething = false;
 
     employeesData.forEach(e => {
         db[e.name].prefs.forEach(pDay => {
@@ -886,22 +918,10 @@ function autoCompleteManual() {
         }
 
         if (bestDay !== -1) {
-            bestCands.sort((a, b) => {
-                if (isFF(bestDay)) {
-                    let ffA = db[a.name].asignadoManual.filter(x => isFF(x)).length + (db[a.name].startingAccFF || 0);
-                    let ffB = db[b.name].asignadoManual.filter(x => isFF(x)).length + (db[b.name].startingAccFF || 0);
-                    if (ffA !== ffB) return ffA - ffB;
-                } else if (isVP(bestDay)) {
-                    let vpA = db[a.name].asignadoManual.filter(x => isVP(x)).length + (db[a.name].startingAccVP || 0);
-                    let vpB = db[b.name].asignadoManual.filter(x => isVP(x)).length + (db[b.name].startingAccVP || 0);
-                    if (vpA !== vpB) return vpA - vpB;
-                }
-                let cA = db[a.name].asignadoManual.length, cB = db[b.name].asignadoManual.length;
-                if (cA !== cB) return cA - cB; 
-                return db[b.name].noDisp.length - db[a.name].noDisp.length;
-            });
+            // Usamos el nuevo Imán
+            bestCands.sort((a, b) => sortCandidates(a, b, bestDay, true));
             db[bestCands[0].name].asignadoManual.push(bestDay);
-            assignedSomething = true; keepGoing = true; 
+            keepGoing = true; 
         }
     }
     repairGaps(days, true);
@@ -910,7 +930,6 @@ function autoCompleteManual() {
     saveMonthState(); renderOutput();
     addLog(`<span class="log-tag tag-pro" style="background:var(--success)">MANUAL</span> Autocompletado finalizado.`);
 }
-
 
 
 
@@ -1048,21 +1067,27 @@ function beamEvaluateDay(day, pass) {
 function orToolsOptimize(days, isManual = false) {
     const target = isManual ? 'asignadoManual' : 'asignado';
 
-    const typeSwap = (checkTypeFn, typeName, accProp) => {
+    const typeSwap = (checkTypeFn, typeName, accProp, qProp) => {
         let swapped = true; let limit = 0;
         while(swapped && limit++ < 500) {
             swapped = false;
             let stats = employeesData.map(e => ({
                 name: e.name,
                 totalSpec: db[e.name][target].filter(d => checkTypeFn(d)).length + (db[e.name][accProp]||0),
-                currentSpec: db[e.name][target].filter(d => checkTypeFn(d)).length
+                currentSpec: db[e.name][target].filter(d => checkTypeFn(d)).length,
+                qPropVal: db[e.name][qProp] || 0
             })).sort((a,b) => b.totalSpec - a.totalSpec);
 
             for(let i=0; i<stats.length; i++) {
                 let over = stats[i]; if(over.currentSpec === 0) continue;
+                // ESCUDO: Si tiene el cupo en el clavo, no se lo robamos para dárselo a otro
+                if (over.qPropVal > 0 && over.currentSpec <= over.qPropVal) continue; 
 
                 for(let j=stats.length-1; j>i; j--) {
                     let under = stats[j];
+                    // ESCUDO: Si el otro ya tiene su cupo, no le encasquetamos más
+                    if (under.qPropVal > 0 && under.currentSpec >= under.qPropVal) continue;
+
                     if(over.totalSpec > under.totalSpec + 1) {
                         let oDays = db[over.name][target].filter(d => checkTypeFn(d));
                         let uDays = db[under.name][target].filter(d => !checkTypeFn(d));
@@ -1072,7 +1097,6 @@ function orToolsOptimize(days, isManual = false) {
                                 let tO = db[over.name][target].filter(x => x !== dO);
                                 let tU = db[under.name][target].filter(x => x !== dU);
 
-                                // PASAMOS EL CHIVATO isManual
                                 if(checkLegality(over.name, dU, tO, false, isManual) && checkLegality(under.name, dO, tU, false, isManual)) {
                                     db[over.name][target] = [...tO, dU];
                                     db[under.name][target] = [...tU, dO];
@@ -1089,10 +1113,9 @@ function orToolsOptimize(days, isManual = false) {
         }
     };
 
-    typeSwap(isFF, "Festivo", "startingAccFF");
-    typeSwap(isVP, "Víspera", "startingAccVP");
+    typeSwap(isFF, "Festivo", "startingAccFF", "qF");
+    typeSwap(isVP, "Víspera", "startingAccVP", "qV");
 }
-
 // ============================================================
 // . balance Quantities 
 // ============================================================
@@ -1104,32 +1127,49 @@ function balanceQuantities(isManual = false) {
 
     while (moved && iter++ < 200) {
         moved = false;
-        let stats = employeesData.map(e => ({ name: e.name, n: db[e.name][target].length }))
-            .sort((a, b) => b.n - a.n);
+        let stats = employeesData.map(e => ({ 
+            name: e.name, 
+            n: db[e.name][target].length,
+            qTotal: db[e.name].qTotal || 0
+        })).sort((a, b) => b.n - a.n);
 
-        let over = stats[0];
-        let under = stats[stats.length - 1];
+        for (let i = 0; i < stats.length; i++) {
+            let over = stats[i];
+            // ESCUDO: Si tiene objetivo total y no le sobran, es INTOCABLE
+            if (over.qTotal > 0 && over.n <= over.qTotal) continue; 
 
-        if (over.n > under.n + 1) {
-            let daysToGive = [...db[over.name][target]].sort((a,b) => {
-                let weightA = isFF(a) ? 2 : (isVP(a) ? 1 : 0);
-                let weightB = isFF(b) ? 2 : (isVP(b) ? 1 : 0);
-                return weightA - weightB;
-            });
+            for (let j = stats.length - 1; j > i; j--) {
+                let under = stats[j];
+                // ESCUDO: Si tiene objetivo total y ya llegó, no le damos más
+                if (under.qTotal > 0 && under.n >= under.qTotal) continue; 
 
-            for (let d of daysToGive) {
-                // PASAMOS EL CHIVATO isManual AL FINAL
-                if (!db[under.name][target].includes(d) && checkLegality(under.name, d, db[under.name][target], false, isManual)) {
-                    db[over.name][target] = db[over.name][target].filter(x => x !== d);
-                    db[under.name][target].push(d);
-                    moved = true;
-                    break;
+                if (over.n > under.n + 1) {
+                    let daysToGive = [...db[over.name][target]].sort((a,b) => {
+                        return (isFF(a) ? 2 : (isVP(a) ? 1 : 0)) - (isFF(b) ? 2 : (isVP(b) ? 1 : 0));
+                    });
+
+                    for (let d of daysToGive) {
+                        // ESCUDOS ESPECÍFICOS: Protegemos los Festivos y Vísperas marcados en los objetivos
+                        if (db[over.name].qF > 0 && isFF(d) && db[over.name][target].filter(x=>isFF(x)).length <= db[over.name].qF) continue;
+                        if (db[over.name].qV > 0 && isVP(d) && db[over.name][target].filter(x=>isVP(x)).length <= db[over.name].qV) continue;
+                        
+                        if (db[under.name].qF > 0 && isFF(d) && db[under.name][target].filter(x=>isFF(x)).length >= db[under.name].qF) continue;
+                        if (db[under.name].qV > 0 && isVP(d) && db[under.name][target].filter(x=>isVP(x)).length >= db[under.name].qV) continue;
+
+                        if (!db[under.name][target].includes(d) && checkLegality(under.name, d, db[under.name][target], false, isManual)) {
+                            db[over.name][target] = db[over.name][target].filter(x => x !== d);
+                            db[under.name][target].push(d);
+                            moved = true;
+                            break;
+                        }
+                    }
                 }
+                if (moved) break;
             }
+            if (moved) break;
         }
     }
 }
-
 
 
 function repairGaps(days, isManual = false) {
@@ -1185,8 +1225,47 @@ function repairGaps(days, isManual = false) {
 // ============================================================
 // 12. MOTOR PRINCIPAL PRO 
 // ============================================================
+function sortCandidates(a, b, bestDay, isManual) {
+    const targetAttr = isManual ? 'asignadoManual' : 'asignado';
+    const aShifts = db[a.name][targetAttr] || [];
+    const bShifts = db[b.name][targetAttr] || [];
+    
+    if (isFF(bestDay)) {
+        let faltanF_A = db[a.name].qF > 0 ? db[a.name].qF - aShifts.filter(x=>isFF(x)).length : -1;
+        let faltanF_B = db[b.name].qF > 0 ? db[b.name].qF - bShifts.filter(x=>isFF(x)).length : -1;
+        
+        if (faltanF_A > 0 && faltanF_B <= 0) return -1; // A lo necesita como el comer
+        if (faltanF_B > 0 && faltanF_A <= 0) return 1;  // B lo necesita como el comer
+
+        let ffA = aShifts.filter(x => isFF(x)).length + (db[a.name].startingAccFF || 0);
+        let ffB = bShifts.filter(x => isFF(x)).length + (db[b.name].startingAccFF || 0);
+        if (ffA !== ffB) return ffA - ffB;
+        
+    } else if (isVP(bestDay)) {
+        let faltanV_A = db[a.name].qV > 0 ? db[a.name].qV - aShifts.filter(x=>isVP(x)).length : -1;
+        let faltanV_B = db[b.name].qV > 0 ? db[b.name].qV - bShifts.filter(x=>isVP(x)).length : -1;
+        
+        if (faltanV_A > 0 && faltanV_B <= 0) return -1;
+        if (faltanV_B > 0 && faltanV_A <= 0) return 1;
+
+        let vpA = aShifts.filter(x => isVP(x)).length + (db[a.name].startingAccVP || 0);
+        let vpB = bShifts.filter(x => isVP(x)).length + (db[b.name].startingAccVP || 0);
+        if (vpA !== vpB) return vpA - vpB;
+    }
+
+    let faltanT_A = db[a.name].qTotal > 0 ? db[a.name].qTotal - aShifts.length : -1;
+    let faltanT_B = db[b.name].qTotal > 0 ? db[b.name].qTotal - bShifts.length : -1;
+    
+    if (faltanT_A > 0 && faltanT_B <= 0) return -1;
+    if (faltanT_B > 0 && faltanT_A <= 0) return 1;
+
+    let cA = aShifts.length, cB = bShifts.length;
+    if (cA !== cB) return cA - cB; 
+    return db[b.name].noDisp.length - db[a.name].noDisp.length;
+}
+
 async function generatePro() {
-    addLog(`<span class="log-tag tag-pro">MOTOR</span> Iniciando generación IA + Rescate...`);
+    addLog(`<span class="log-tag tag-pro">MOTOR</span> Iniciando generación IA (Objetivos Exactos)...`);
     const days = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
     employeesData.forEach(e => db[e.name].asignado = []);
 
@@ -1215,20 +1294,8 @@ async function generatePro() {
         }
 
         if (bestDay !== -1) {
-            bestCands.sort((a, b) => {
-                if (isFF(bestDay)) {
-                    let ffA = db[a.name].asignado.filter(x => isFF(x)).length + (db[a.name].startingAccFF || 0);
-                    let ffB = db[b.name].asignado.filter(x => isFF(x)).length + (db[b.name].startingAccFF || 0);
-                    if (ffA !== ffB) return ffA - ffB;
-                } else if (isVP(bestDay)) {
-                    let vpA = db[a.name].asignado.filter(x => isVP(x)).length + (db[a.name].startingAccVP || 0);
-                    let vpB = db[b.name].asignado.filter(x => isVP(x)).length + (db[b.name].startingAccVP || 0);
-                    if (vpA !== vpB) return vpA - vpB;
-                }
-                let cA = db[a.name].asignado.length, cB = db[b.name].asignado.length;
-                if (cA !== cB) return cA - cB; 
-                return db[b.name].noDisp.length - db[a.name].noDisp.length;
-            });
+            // Usamos el nuevo Imán
+            bestCands.sort((a, b) => sortCandidates(a, b, bestDay, false));
             db[bestCands[0].name].asignado.push(bestDay);
             keepGoing = true; 
         }
@@ -3118,6 +3185,49 @@ function toggleSpecialDates() {
     }
 }
 
+// ============================================================
+// 28. REGLAS DEL SISTEMA
+// ============================================================
+function openRulesModal() {
+    document.getElementById('modalRules').style.display = 'flex';
+}
+
+function closeRulesModal() {
+    document.getElementById('modalRules').style.display = 'none';
+}
+
+
+// ============================================================
+// 29. CIERRE INTELIGENTE DE MODALES (ESC y Click fuera)
+// ============================================================
+
+// 1. Cerrar al hacer clic fuera del modal (en el fondo oscuro)
+window.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
+        // Refrescamos la vista por si estábamos editando peticiones o incompatibilidades
+        if (typeof renderOutput === 'function') renderOutput();
+    }
+});
+
+// 2. Cerrar al pulsar la tecla Escape (ESC)
+window.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modals = document.querySelectorAll('.modal');
+        let closedAny = false;
+        
+        modals.forEach(modal => {
+            // Comprobamos si el modal está visible actualmente
+            if (window.getComputedStyle(modal).display !== 'none') {
+                modal.style.display = 'none';
+                closedAny = true;
+            }
+        });
+        
+        // Refrescamos la vista solo si hemos cerrado algo
+        if (closedAny && typeof renderOutput === 'function') renderOutput();
+    }
+});
 init();
 </script>
 </body>
